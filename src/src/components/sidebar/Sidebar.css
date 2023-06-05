@@ -1,0 +1,18 @@
+/*
+ * Sidebar
+ */
+#sidebarMenu{
+  position: absolute;
+  top: 110px;
+  z-index: 1500;
+  left: 12px;
+  opacity: 0.7;
+  font-family: 'EB Garamond', serif;
+  color: rgb(0, 0, 99);
+  font-size: 15px;
+  
+
+}
+#sidebarMenu:hover{
+  opacity: 1;
+}
