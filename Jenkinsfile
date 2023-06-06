@@ -46,7 +46,7 @@ pipeline {
                 }
             }
         }
-        stage('Init Api') {
+        stage('Init Front End') {
             steps {
                 script {
                     sshCommand remote: remote, command: """
