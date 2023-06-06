@@ -39,7 +39,7 @@ pipeline {
                         unzip -o releaseFront.zip
                         rm -fr releaseFront.zip
                         mkdir agroadvisory
-                        mv src/agroadvisory/build/* agroadvisory
+                        mv src/build/* agroadvisory
                         rm -fr src
                         mv agroadvisory/ /var/www/docs/
                     """
