@@ -72,7 +72,7 @@ jobs:
     - name: Run build
       run: npm --prefix ./src run build
     - name: Zip artifact front for deployment
-      run: zip releaseFront.zip ./src/agroadvisory/build/* -r
+      run: zip releaseFront.zip ./src/build/* -r
     # Upload Artifacts
     - name: Upload Front artifact for deployment job
       uses: actions/upload-artifact@v3
