@@ -30,8 +30,9 @@ pipeline {
             steps {
                 script {
                     sshCommand remote: remote, command: """
+                        cd /var/www/docs/
+                        pm2 delete agroadvisory
                         cd /var/www/docs/front_back/
-                        sudo kill -9 \$(sudo netstat -nepal | grep "0.0.0.0:3000" | awk '{print \$9}' | awk -F '/' '{print \$1}')
                         rm -fr front_backup_\$(date +"%Y%m%d")
                         mv /var/www/docs/agroadvisory/ front_backup_\$(date +"%Y%m%d")
                         rm -fr releaseFront.zip
@@ -50,7 +51,7 @@ pipeline {
             steps {
                 script {
                     sshCommand remote: remote, command: """
-                        cd /var/www/docs/agroadvisory/
+                        cd /var/www/docs/
                         pm2 serve agroadvisory 3000 --name agroadvisory --spa
                     """
                 }
