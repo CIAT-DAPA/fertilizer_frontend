@@ -5,7 +5,7 @@ name: Devops Fertalizer Front
 
 on:
   push:
-    branches: [ "develop" ]
+    branches: [ "stage" ]
     tags:
     - 'v*'
 
