@@ -27,27 +27,6 @@ function Menu() {
                     </button>
                     <div className="collapse navbar-collapse" id="navbarCollapse">
                         <ul className="navbar-nav me-auto mb-2 mb-md-0">
-                            {/* <li className="nav-item">
-                                <Link className="nav-link" to="/fertilizer_advisories">Fertilizer</Link>
-                            </li>
-                            <li className="nav-item">
-                                <Link className="nav-link" to="/agroclimate">Agroclimate</Link>
-                            </li>
-                            <li className="nav-item">
-                                <Link className="nav-link" to="/isfm">ISFM</Link>
-                            </li>
-                            <li className="nav-item">
-                               <Link className="nav-link" to="/irrigation">Irrigation scheduling</Link>
-                           </li> */}
-                            {/* <li className="nav-item">
-                                <a className="nav-link" href="/pest_disease">Pest and disease surveillance</a>
-                            </li>
-                            <li className="nav-item">
-                                <a className="nav-link" href="/csa">CSA</a>
-                            </li> 
-                            <li className="nav-item">
-                                <a className="nav-link" href="/mechanization">Mechanization</a>
-                            </li>*/}
                             {
                                 reportInput?.type === "kebele" ?
                                     <li className="nav-item">
