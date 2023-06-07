@@ -3,6 +3,8 @@ import './Menu.css';
 import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux';
 
+import logo_nextgen from '../../assets/images/logo_nextgen.png'
+
 function Menu() {
     const [reportButtonDisabled, setReportButtonDisabled] = React.useState("false");
     const reportInput = useSelector((state) => state.report);
@@ -18,6 +20,7 @@ function Menu() {
         <header>
             <nav className="navbar navbar-expand-md navbar-dark fixed-top bg-dark" style={{ zIndex: '2000' }}>
                 <div className="container-fluid">
+                    <img src={logo_nextgen} width='40px' className='me-2'/>
                     <Link className="navbar-brand" to="/">NextGen Agroadvisory</Link>
                     <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
                         <span className="navbar-toggler-icon"></span>
