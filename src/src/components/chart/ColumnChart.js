@@ -4,6 +4,8 @@ import Chart from "react-apexcharts";
 function ColumnChart({data, type}) {
 
   const [dataFormatted, setDataFormatted] = React.useState();
+  const [categories, setCategories] = React.useState([ 'Above normal', 'Normal', 'Below normal' ]);
+  const [dataOptimal, setDataOptimal] = React.useState()
   const typeToTypeName = new Map();
     typeToTypeName.set('63865d9f68c981103580abf0','compost');
     typeToTypeName.set('63865ef468c981103580e666','nps');
@@ -13,20 +15,24 @@ function ColumnChart({data, type}) {
 
   React.useEffect(() => {
     
-      let aux = {metric_name: [], above:[], normal:[], below:[]}
+      let aux = {metric_name: [], above:[], normal:[], below:[], dominant:[]}
   
       data.map(value => (
         aux.metric_name.push(typeToTypeName.get(value.type)),
         aux.above.push(value.values[0].values[0].toFixed(2)),
         aux.normal.push(value.values[1][0].values[0].toFixed(2)),
-        aux.below.push(value.values[2][0].values[0].toFixed(2))
+        aux.below.push(value.values[2][0].values[0].toFixed(2)),
+        value.values.length > 3 && aux.dominant.push(value.values[3][0].values[0].toFixed(2))
         
       ));
       setDataFormatted(aux);
-
-    
-    
-    
+      if ( data[0].values.length > 3 ) {
+        setCategories( [...categories, 'Dominant' ] )
+        setDataOptimal( [aux.above[0], aux.normal[0], aux.below[0], aux.dominant[0] ])
+      } else {
+        setCategories( categories.filter(filter => filter !== "Dominant"))
+        setDataOptimal( [aux.above[0], aux.normal[0], aux.below[0] ])
+      }
     
 }, [data]);
 
@@ -45,7 +51,12 @@ if(dataFormatted){
           }, {
             name: 'Below normal',
             data: dataFormatted.below
-          }],
+          }, dataFormatted.dominant.length > 0 && 
+          {
+            name: 'Dominant',
+            data: dataFormatted.dominant
+          }
+        ],
           options: {
             chart: {
               type: 'bar',
@@ -96,14 +107,14 @@ if(dataFormatted){
           
       series: [{
         name:'optimal yield',
-        data: [dataFormatted.above[0], dataFormatted.normal[0], dataFormatted.below[0]]
+        data: dataOptimal
       }],
       options: {
         chart: {
           height: 350,
           type: 'bar'
         },
-        colors: ['#0d6efd', '#20c997', '#ffc107'],
+        colors: ['#0d6efd', '#20c997', '#ffc107', '#FF4560'],
         plotOptions: {
           bar: {
             columnWidth: '40%',
@@ -117,9 +128,7 @@ if(dataFormatted){
           show: false
         },
         xaxis: {
-          categories: [
-            'Above normal', 'Normal', 'Below normal'
-          ],
+          categories: categories,
           labels: {
             style: {
               colors: null,
