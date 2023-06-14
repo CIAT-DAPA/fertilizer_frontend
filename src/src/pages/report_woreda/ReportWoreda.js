@@ -10,6 +10,7 @@ import GeoFeatures from "../../services/GeoFeatures";
 import ColumnChart from "../../components/chart/ColumnChart";
 import Configuration from "../../conf/Configuration";
 import Chart from "react-apexcharts";
+import SelectFilters from '../../components/select_filters/SelectFilters';
 const bbox = require("geojson-bbox");
 
 function ReportWoreda() {
@@ -28,20 +29,25 @@ function ReportWoreda() {
     const [load, setLoad] = React.useState(false);
     const [kebeles, setKebeles] = React.useState();
     const [chart, setChart] = React.useState();
+    const [opt_forecast, setOptForecast] = React.useState([]);
+    const [forecast, setForecast] = React.useState();
+    const [opt_crops, setOptCrops] = React.useState([]);
+    const [opt_scenarios, setOptScenarios] = React.useState([ "normal", "above", "below" ]);
+    const [crop, setCrop] = React.useState();
+    const [forecasts, setForecasts] = React.useState([]);
+    const [crops, setCrops] = React.useState([])
 
     React.useEffect(() => {
         setLoad(false);
         if (reportInput.woreda) {
-            GeoFeatures.geojsonWoreda("'" + reportInput.woreda[2] + "'").then(
-                (data_geo) => {
-                    const extent = bbox(data_geo);
-                    setBounds([
-                        [extent[1], extent[0]],
-                        [extent[3], extent[2]],
-                    ]);
-                    setGeoJson(data_geo);
-                }
-            );
+
+            if ( forecast !== "2022-07" ) {
+                setOptScenarios( [...opt_scenarios, "dominant" ] )
+            } else {
+                setOptScenarios( opt_scenarios.filter(filter => filter !== "dominant"))
+            }
+
+            const forecastFound = forecasts.find(prop => prop.date === forecast)
             let kebeles;
             let ids = "";
             const suma = [
@@ -51,6 +57,7 @@ function ReportWoreda() {
                             { s: 1, values: [0] },
                             [{ s: 2, values: [0] }],
                             [{ s: 3, values: [0] }],
+                            [{ s: 4, values: [0] }],
                         ],
                     },
                     {
@@ -59,6 +66,7 @@ function ReportWoreda() {
                             { s: 1, values: [0] },
                             [{ s: 2, values: [0] }],
                             [{ s: 3, values: [0] }],
+                            [{ s: 4, values: [0] }],
                         ],
                     },
                     {
@@ -67,6 +75,7 @@ function ReportWoreda() {
                             { s: 1, values: [0] },
                             [{ s: 2, values: [0] }],
                             [{ s: 3, values: [0] }],
+                            [{ s: 4, values: [0] }],
                         ],
                     },
                     {
@@ -75,6 +84,7 @@ function ReportWoreda() {
                             { s: 1, values: [0] },
                             [{ s: 2, values: [0] }],
                             [{ s: 3, values: [0] }],
+                            [{ s: 4, values: [0] }],
                         ],
                     },
                     {
@@ -83,6 +93,7 @@ function ReportWoreda() {
                             { s: 1, values: [0] },
                             [{ s: 2, values: [0] }],
                             [{ s: 3, values: [0] }],
+                            [{ s: 4, values: [0] }],
                         ],
                     },
                 ];
@@ -100,18 +111,22 @@ function ReportWoreda() {
                                 ids += `${dato.id},`;
                         });
                         await axios
-                          .get(Configuration.get_url_api_base() + "metrics/" + ids)
-                          .then((response) => {
-                            response.data.map((kebele) => {
-                              const aux = suma.filter(ar => ar.type === kebele.type);
-                              aux[0].values[0].values[0] +=
-                                kebele.values[0].values[0] / kebeles.length;
-                              aux[0].values[1][0].values[0] +=
-                                kebele.values[1][0].values[0] / kebeles.length;
-                              aux[0].values[2][0].values[0] +=
-                                kebele.values[2][0].values[0] / kebeles.length;
+                            .get(Configuration.get_url_api_base() + "metrics/" + ids)
+                            .then((response) => {
+                                const dataFind = response.data.filter(data => data.forecast === forecastFound.id)
+                                dataFind.map((kebele) => {
+                                    const aux = suma.filter(ar => ar.type === kebele.type);
+                                    aux[0].values[0].values[0] +=
+                                        kebele.values[0].values[0] / kebeles.length;
+                                    aux[0].values[1][0].values[0] +=
+                                        kebele.values[1][0].values[0] / kebeles.length;
+                                    aux[0].values[2][0].values[0] +=
+                                        kebele.values[2][0].values[0] / kebeles.length;
+                                    kebele.values[3] && aux[0].values[3] ? 
+                                        ( aux[0].values[3][0].values[0] += kebele.values[3][0].values[0] / kebeles.length )
+                                        : (aux[0].values.splice(3, 1))
+                                });
                             });
-                          });
                         await axios
                             .get(Configuration.get_url_api_base() + "risk/" + ids)
                             .then((response) => {
@@ -172,7 +187,56 @@ function ReportWoreda() {
                 });
             setBarChartData(suma);
         }
-    }, []);
+    }, [forecast]);
+
+    // Initial load, crops and geojson
+    React.useEffect(() => {
+        if (reportInput.woreda) {
+            GeoFeatures.geojsonWoreda("'" + reportInput.woreda[2] + "'").then(
+                (data_geo) => {
+                    const extent = bbox(data_geo);
+                    setBounds([
+                        [extent[1], extent[0]],
+                        [extent[3], extent[2]],
+                    ]);
+                    setGeoJson(data_geo);
+                }
+            );
+        }
+        if ( opt_forecast.length === 0) {
+            axios.get(Configuration.get_url_api_base() + "crops")
+            .then(response => {
+                const crops = response.data.map(crop => ({ label: crop.name.charAt(0).toUpperCase() + crop.name.slice(1), value: crop.name }))
+                setCrop(crops[0].value)
+                setOptCrops(crops);
+                setCrops(response.data)
+            });
+        } 
+    }, [])
+
+    // load of date forecast by crop
+    React.useEffect(() => {
+        if ( crop && crops.length > 0 ) {
+            const cropFound = crops.find(prop => prop.name === crop)
+            axios.get(Configuration.get_url_api_base() + `forecast/${cropFound.id}`)
+            .then(response => {
+                const date = response.data.map(forecast => ({ label: forecast.date, value: forecast.date }))
+                setForecasts(response.data);
+                setForecast(date[0].value);
+                setOptForecast(date);
+            });
+        }
+        
+    }, [crop])
+
+    const changeForecast = event => {
+        setForecast(event.value);
+    };
+
+    const changeCrop = event => {
+        setCrop(event.value);
+    };
+
 
     // Generate the pdf based on a component
     const createPDF = async () => {
@@ -217,7 +281,8 @@ function ReportWoreda() {
                     <h5 className="card-title">{name}</h5>
                     {geoJson && (
                         <Map
-                            crop="wheat"
+                            scenarios={opt_scenarios}
+                            crop={crop}
                             scenario="normal"
                             id={id}
                             init={map_init}
@@ -228,6 +293,7 @@ function ReportWoreda() {
                                 minHeight: id === "location_report" ? "370px" : "312.29px"
                             }}
                             bounds={bounds}
+                            forecast={forecast}
                             legend={id !== "location_report"}
                             styleGeojson={id !== "location_report" && { fillOpacity: 0, color: "red" }}
                         />
@@ -294,96 +360,95 @@ function ReportWoreda() {
                 <>
                     <br />
                     <section className="container">
-                        <div className="d-flex font-link">
+                        <div className="d-flex justify-content-between font-link">
                             <h3>
                                 Woreda report: <b>{reportInput.woreda[1]}</b>
                             </h3>
+                            <button onClick={createPDF} disabled={ !load } type="button" className="btn btn-primary" > Export </button>
                         </div>
-                        <div>
-                            <button
-                                onClick={createPDF}
-                                type="button"
-                                className="btn btn-primary"
-                            >
-                                Export
-                            </button>
-                        </div>
-                        {!load ? (
-                            <Spinners />
-                        ) : kebeles.length > 0 ? (
-                            <div id="report">
-                                <div className="row my-3 g-8 row-cols-auto justify-content-between">
-                                    <Location id="location_report"/>
-                                    { reportInput.ad_optimal && 
-                                        <>
-                                        <BarChartYield
-                                            name={"Optimal yield"}
-                                            data={[barChartData[2]]}
-                                        />
-                                        <Location id="recommendation_report" />
-                                        </>
-                                    }
-                                    {reportInput.ad_fertilizer &&
-                                        <>
-                                            <div className="alert alert-light my-3 border" role="alert">
-                                                <p className="font-link-body text-justify">
-                                                    Integrated Soil Fertility Management (ISFM) in this study address the integrated use of inorganic fertilizers with organic fertilizer such as verm-icompost, compost, manure, and bio-slurry with a set of locally adapted soil fertility technologies and improved agronomic practices promoted to enhance soil fertility, crop productivity and incomes of smallholder farmers. For this purpose, we developed site-specific recommendations integrated use of organic fertilizer with inorganic fertilizer for profitable wheat production in Ethiopia.
-                                                </p>
-                                                <p className="font-link-body text-justify">
-                                                    Urea is the most concentrated solid nitrogen fertilizer which contain 46% nitrogen and no other plant nutrients. It is the most common fertilizer used as a source of nitrogen in Ethiopia. When it is worked into the soil, it is as effective as any other nitrogen fertilizer and is most efficiently utilized on soils with adequate moisture content, so that the gaseous ammonia can go quickly into solution. In the soil, urea changes to ammonium carbonate which may temporarily cause a harmful local high pH and its use need smart management practices such as split application to allow efficient uptake by plant.
-                                                </p>
-                                                <p className="font-link-body text-justify">
-                                                    NPS blend fertilizer is a mix of single fertilizers which are mixed during the production process into an instant fertilizer recipe, packaged in a big bag. The composition of the mix is homogeneous throughout the entire big bag. This prevents the nutrients from coagulating and turning into hard layers, enabling easy application of the product into the crop field. Different types of blended fertilizers are available in Ethiopia. The NPS blend fertilizer used for crop production in Ethiopia contain nitrogen (19%), phosphorus (38%) and sulphur (7%).
-                                                </p>
-                                            </div>
-                                            <BarChartFert
-                                                name={"Fertilizer rate"}
-                                                data={[barChartData[1], barChartData[3]]} 
-                                                tooltip={<p>Urea: compound fertilizer and source of nitrogen <br/>
-                                                NPS: blended fertilizer and source of nitrogen, phosphorus, and sulphur</p>
-                                                }
-                                            />
-                                            <Location id="nps_urea_report" />
-                                            <BarChartFert
-                                                name={"Fertilizer rate (ISFM)"}
-                                                data={[barChartData[0], barChartData[4]]}
-                                                tooltip={<p>ISFM: integrated soil fertility management<br/><br/></p>}
-                                            />
-                                            <Location id="compost_report" />
-                                        </>
-                                    }
-                                    {
-                                        reportInput.ad_risk && chart &&
-                                            <div
-                                                className="card col-12 col-md-5 my-1"
-                                                key="bar_chart_risk"
-                                                style={{ minWidth: "49%" }}
-                                            >
-                                                <div className="card-body">
-                                                    <h5 className="card-title">Risk</h5>
-                                                    <Chart options={chart.options} series={chart.series} type="bar" height={300} />
+                        {
+                            <>
+                                {opt_forecast.length > 0 &&
+                                    <SelectFilters onChangeCrop={changeCrop} onChangeForecast={changeForecast} opt_forecast={opt_forecast} opt_crops={opt_crops} />
+                                }
+                                {!load ? (
+                                    <Spinners />
+                                ) : kebeles.length > 0 ? (
+                                    <div id="report">
+                                        <div className="row my-3 g-8 row-cols-auto justify-content-between">
+                                            <Location id="location_report" />
+                                            {reportInput.ad_optimal &&
+                                                <>
+                                                    <BarChartYield
+                                                        name={"Optimal yield"}
+                                                        data={[barChartData[2]]}
+                                                    />
+                                                    <Location id="recommendation_report" />
+                                                </>
+                                            }
+                                            {reportInput.ad_fertilizer &&
+                                                <>
+                                                    <div className="alert alert-light my-3 border" role="alert">
+                                                        <p className="font-link-body text-justify">
+                                                            Integrated Soil Fertility Management (ISFM) in this study address the integrated use of inorganic fertilizers with organic fertilizer such as verm-icompost, compost, manure, and bio-slurry with a set of locally adapted soil fertility technologies and improved agronomic practices promoted to enhance soil fertility, crop productivity and incomes of smallholder farmers. For this purpose, we developed site-specific recommendations integrated use of organic fertilizer with inorganic fertilizer for profitable wheat production in Ethiopia.
+                                                        </p>
+                                                        <p className="font-link-body text-justify">
+                                                            Urea is the most concentrated solid nitrogen fertilizer which contain 46% nitrogen and no other plant nutrients. It is the most common fertilizer used as a source of nitrogen in Ethiopia. When it is worked into the soil, it is as effective as any other nitrogen fertilizer and is most efficiently utilized on soils with adequate moisture content, so that the gaseous ammonia can go quickly into solution. In the soil, urea changes to ammonium carbonate which may temporarily cause a harmful local high pH and its use need smart management practices such as split application to allow efficient uptake by plant.
+                                                        </p>
+                                                        <p className="font-link-body text-justify">
+                                                            NPS blend fertilizer is a mix of single fertilizers which are mixed during the production process into an instant fertilizer recipe, packaged in a big bag. The composition of the mix is homogeneous throughout the entire big bag. This prevents the nutrients from coagulating and turning into hard layers, enabling easy application of the product into the crop field. Different types of blended fertilizers are available in Ethiopia. The NPS blend fertilizer used for crop production in Ethiopia contain nitrogen (19%), phosphorus (38%) and sulphur (7%).
+                                                        </p>
+                                                    </div>
+                                                    <BarChartFert
+                                                        name={"Fertilizer rate"}
+                                                        data={[barChartData[1], barChartData[3]]}
+                                                        tooltip={<p>Urea: compound fertilizer and source of nitrogen <br />
+                                                            NPS: blended fertilizer and source of nitrogen, phosphorus, and sulphur</p>
+                                                        }
+                                                    />
+                                                    <Location id="nps_urea_report" />
+                                                    <BarChartFert
+                                                        name={"Fertilizer rate (ISFM)"}
+                                                        data={[barChartData[0], barChartData[4]]}
+                                                        tooltip={<p>ISFM: integrated soil fertility management<br /><br /></p>}
+                                                    />
+                                                    <Location id="compost_report" />
+                                                </>
+                                            }
+                                            {
+                                                reportInput.ad_risk && chart &&
+                                                <div
+                                                    className="card col-12 col-md-5 my-1"
+                                                    key="bar_chart_risk"
+                                                    style={{ minWidth: "49%" }}
+                                                >
+                                                    <div className="card-body">
+                                                        <h5 className="card-title">Risk</h5>
+                                                        <Chart options={chart.options} series={chart.series} type="bar" height={300} />
+                                                    </div>
                                                 </div>
-                                            </div>
 
-                                    }
-                                    
-                                </div>
-                                {reportInput.ad_fertilizer && <div  className="alert alert-light my-3 border" role="alert">
-                                    <h5>Notes: </h5>
-                                    <ol>
-                                        <li>This advisory is for agricultural land allotted to wheat in 2022 main crop season only.</li>
-                                        <li>If there is no sufficient inorganic fertilizer supply, use half inorganic with half organic rates.</li>
-                                    </ol>
-                                </div>}
-                            </div>
-                        ) : (
-                            <div
-                                className="alert alert-warning mt-4 text-center"
-                                role="alert"
-                            >
-                                The selected Woreda has no kebeles regristred
-                            </div>
-                        )}
+                                            }
+
+                                        </div>
+                                        {reportInput.ad_fertilizer && <div className="alert alert-light my-3 border" role="alert">
+                                            <h5>Notes: </h5>
+                                            <ol>
+                                                <li>This advisory is for agricultural land allotted to wheat in 2022 main crop season only.</li>
+                                                <li>If there is no sufficient inorganic fertilizer supply, use half inorganic with half organic rates.</li>
+                                            </ol>
+                                        </div>}
+                                    </div>
+                                ) : (
+                                    <div
+                                        className="alert alert-warning mt-4 text-center"
+                                        role="alert"
+                                    >
+                                        The selected Woreda has no kebeles regristred
+                                    </div>
+                                )}
+                            </>
+                        }
                     </section>
                 </>
             ) : (

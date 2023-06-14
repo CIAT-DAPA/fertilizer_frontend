@@ -1,17 +1,19 @@
 import React from 'react'
 
 import Sidebar from '../../components/sidebar/Sidebar';
-import MapHeader from '../../components/map_header/MapHeader';
 import Map from '../../components/map/Map';
+import axios from 'axios';
+import Configuration from "../../conf/Configuration";
 
 
 function ISFM() {
 
-    const opt_forecast = [{ label: "2022-07", value: "2022-07" }];
-    const opt_crops = [{ label: "Wheat", value: "wheat" }];
-    const opt_scenarios = [{ label: "Normal", value: "normal" }, { label: "Above", value: "above" }, { label: "Below", value: "below" }];
+    const [opt_forecast, setOptForecast] = React.useState([]);
+    const [opt_crops, setOptCrops] = React.useState([]);
+    const [opt_scenarios, setOptScenarios] = React.useState([{ label: "Normal", value: "normal" }, { label: "Above", value: "above" }, { label: "Below", value: "below" }]);
     const [map_init, setMap_init] = React.useState({ center: [9.3988271, 39.9405962], zoom: 6 });
-    const [filters, setFilters] = React.useState({forecast: opt_forecast[0].value, crop: opt_crops[0].value, scenario: opt_scenarios[0].value});
+    const [filters, setFilters] = React.useState({scenario: opt_scenarios[0].value});
+    const [crops, setCrops] = React.useState([])
  
     
    
@@ -44,23 +46,42 @@ function ISFM() {
         
     };
 
-    // const onFiltersChange = event => {
-    //     const changedFiltersValues = {
-    //         ...filters,
-    //         lotes: value
-            
-    //     }
-    //     setFilters(event);
+     // change scenario dominant
+     React.useEffect(() => {
+        if ( filters.forecast !== "2022-07") {
+          setOptScenarios( [...opt_scenarios, { label: "Dominant", value: "dominant" }] )
+        } else {
+          setOptScenarios( opt_scenarios.filter(filter => filter.value !== "dominant"))
+        }
+    }, [filters.forecast])
 
-    // }
+    // load of date forecast by crop
+    React.useEffect(() => {
+        if ( filters.crop && crops.length > 0 ) {
+            const cropFound = crops.find(prop => prop.name === filters.crop)
+            axios.get(Configuration.get_url_api_base() + `forecast/${cropFound.id}`)
+            .then(response => {
+                const date = response.data.map(forecast => ({ label: forecast.date, value: forecast.date }))
+                setFilters({ ...filters, forecast: date[0].value })
+                setOptForecast(date);
+            }); 
+        }
+          
+    }, [filters.crop])
+  
+    // Load of crops
+    React.useEffect(() => {
+        if ( opt_forecast.length === 0) {
+            axios.get(Configuration.get_url_api_base() + "crops")
+            .then(response => {
+                const crops = response.data.map(crop => ({ label: crop.name.charAt(0).toUpperCase() + crop.name.slice(1), value: crop.name }))
+                setFilters({ ...filters, crop: crops[0].value })
+                setOptCrops(crops);
+                setCrops(response.data)
+            });
+        } 
+    }, [])
 
-    // React.useEffect(() => {
-    //     setForecast(forecast);
-    //     setCrop(crop);
-    //     setScenario(scenario);
-
-    // }, [forecast, crop, scenario]);
-    
    
     return (
         
@@ -85,9 +106,12 @@ function ISFM() {
         </div>
 
         <div style={{'position': 'relative'}}>
-
-            <Sidebar opt_forecast={opt_forecast} opt_crops={opt_crops} opt_scenarios={opt_scenarios} OnChangeForecast={changeForecast} OnChangeCrop={changeCrop} OnChangeScenario={changeScenario}/>
-            <Map id="map_organic_fertilizers" init={map_init} type={"compost"} crop={filters.crop} forecast={filters.forecast} scenario={filters.scenario} style={{height: '80vh'}} cuttable={true} downloadable={true} legend={true}/>
+            {opt_forecast.length > 0 && filters.forecast && opt_crops.length > 0 && filters.crop &&
+                <>
+                    <Sidebar opt_forecast={opt_forecast} opt_crops={opt_crops} opt_scenarios={opt_scenarios} OnChangeForecast={changeForecast} OnChangeCrop={changeCrop} OnChangeScenario={changeScenario}/>
+                    <Map id="map_organic_fertilizers" init={map_init} type={"compost"} crop={filters.crop} forecast={filters.forecast} scenario={filters.scenario} style={{height: '80vh'}} cuttable={true} downloadable={true} legend={true}/>
+                </>
+            }
         </div>
     
         </div>
