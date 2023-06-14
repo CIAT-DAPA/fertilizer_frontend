@@ -3,7 +3,7 @@ import axios from "axios";
 import Configuration from "../conf/Configuration";
 
 class GeoFeatures {
-    get_value(layer, lat, lon) {
+    get_value(layer, lat, lon, time) {
         const parameters = {
             service: 'WMS',
             version: '1.1.1',
@@ -18,6 +18,7 @@ class GeoFeatures {
             height: 101,
             x: 50,
             y: 50,
+            time: time,
             bbox: (lon - 0.1) + ',' + (lat - 0.1) + ',' + (lon + 0.1) + ',' + (lat + 0.1)
         }
         const url = Configuration.get_geoserver_url()+ layer.split(':')[0] + '/' + Configuration.get_geoserver_service() + "?" + new URLSearchParams(parameters).toString();

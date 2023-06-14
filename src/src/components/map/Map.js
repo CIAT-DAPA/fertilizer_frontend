@@ -1,6 +1,6 @@
 import React from 'react';
 import L from "leaflet";
-import { MapContainer, TileLayer, LayersControl, WMSTileLayer, ScaleControl, GeoJSON} from 'react-leaflet';
+import { MapContainer, TileLayer, LayersControl, WMSTileLayer, ScaleControl, GeoJSON, Marker, Popup, useMapEvents} from 'react-leaflet';
 import "leaflet-easyprint";
 import GeoFeatures from '../../services/GeoFeatures';
 import Configuration from "../../conf/Configuration";
@@ -17,7 +17,8 @@ const geoserverLayers = ["optimal_nutrients_n",
         "urea_probabilistic", "nps_probabilistic", 
         "vcompost_probabilistic", "compost_probabilistic", "dominant"];
 
-
+//Current marker
+var marker = null;
 
 function Map(props) {
 
@@ -31,15 +32,13 @@ function Map(props) {
     const [mapRef, setRefMap] = React.useState();
     //For changing the layer according to scenerario selected (Sidebar)
     const [lastSelected, setLastSelected] = React.useState();
-    const [scenarios, setScenarios] = React.useState(["normal", "above", "below"]);
 
     const { BaseLayer } = LayersControl;
     const icon = L.icon({iconSize: [25, 41],iconAnchor: [10, 41],popupAnchor: [2, -40],iconUrl: "https://unpkg.com/leaflet@1.7/dist/images/marker-icon.png",shadowUrl: "https://unpkg.com/leaflet@1.7/dist/images/marker-shadow.png"});
     const request = Configuration.get_raster_crop_url();
     let layerType;
 
-    //Current marker
-    var marker = null;
+    
 
     var paramIdFilter;
 
@@ -100,6 +99,157 @@ function Map(props) {
             }
         }
     }
+
+    const Markers = e => {
+
+        const map = useMapEvents({
+            click(e) {
+                 const { lat, lng } = e.latlng;
+
+                //Just one marker at once
+                if (map) {
+                    map.eachLayer((layer) => {
+                        if (layer instanceof L.Marker) {
+                            map.removeLayer(layer);
+                        }
+                    });
+                }
+                    
+                // The object map has many layers. By default OSM is 35, but custom layers have different ids
+                Object.keys(map._layers).forEach(function(key,index) {
+                    if(map._layers[key].wmsParams !== undefined){
+                        //Yield layer name
+                        const layer_name = map._layers[key].options.layers;
+
+                        const popUpMessage = (layer_name.includes("optimal_nutrients")) ? "optimal nutrient amount: ": 
+                        (layer_name.includes("yieldtypes")) ? "optimal yield amount: " : 
+                        (layer_name.includes(geoserverLayers[3]) || layer_name.includes(geoserverLayers[4])) ? "fertilizer amount: " : 
+                        (layer_name.includes(geoserverLayers[5])) ? "vermi-compost: " : 
+                        (layer_name.includes(geoserverLayers[6])) ? "compost: " : "" 
+                    
+                        const unitPopupMessage = popUpMessage===""?"": (layer_name.includes(geoserverLayers[5]) || layer_name.includes(geoserverLayers[6])) ? " ton/ha" : " kg/ha";
+                        
+                        if (props.type.includes("report")) {
+                            if((layer_name.includes(geoserverLayers[2]))){
+                                //Getting N data  	fertilizer_et:et_wheat_optimal_nutrients_n_normal 
+                                let nLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[0]+"_"+props.scenario
+                                GeoFeatures.get_value(nLayer,lat,lng, props.forecast).then((data)=>{
+                                    if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
+                                        auxTableData[0] = data.features[0].properties.GRAY_INDEX.toFixed(2);
+                                        props.setTableData({n: auxTableData[0], p: auxTableData[1], yieldData: auxTableData[2]})
+
+                                    }
+                            
+                                });
+                                //Getting P data
+                                let pLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[1]+"_"+props.scenario
+                                GeoFeatures.get_value(pLayer,lat,lng, props.forecast).then((data)=>{
+                                    if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
+                                        auxTableData[1] = data.features[0].properties.GRAY_INDEX.toFixed(2);
+                                        //setting table data
+                                        props.setTableData({n: auxTableData[0], p: auxTableData[1], yieldData: auxTableData[2]})
+                                    }
+                                });
+                            }
+                        
+                            //Making a popup
+                            GeoFeatures.get_value(layer_name,lat,lng, props.forecast)
+                            .then((data)=>{ 
+                                if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0 && popUpMessage != "") {
+                                    
+                                    marker = L.marker([lat, lng], { icon }).addTo(map)
+                                        .bindPopup(popUpMessage + data.features[0].properties.GRAY_INDEX.toFixed(2) + unitPopupMessage)
+                                        .openPopup();
+                                        auxTableData[2] = data.features[0].properties.GRAY_INDEX.toFixed(2);
+                                        if(layer_name.includes(geoserverLayers[2])){
+                                            props.setTableData({n: auxTableData[0], p: auxTableData[1], yieldData: auxTableData[2]})
+                                        }
+                                }
+                            });
+                        }else{
+                            if((layer_name.includes(geoserverLayers[2])) || (layer_name.includes(geoserverLayers[1])) || (layer_name.includes(geoserverLayers[0]))){
+                                //Getting N data  	fertilizer_et:et_wheat_optimal_nutrients_n_normal 
+                                let nLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[0]+"_"+props.scenario
+                                GeoFeatures.get_value(nLayer,lat,lng, props.forecast).then((data)=>{
+                                    if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
+                                        auxTableData[0] = data.features[0].properties.GRAY_INDEX.toFixed(2);
+                                        
+                                        //Getting P data
+                                        let pLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[1]+"_"+props.scenario
+                                        GeoFeatures.get_value(pLayer,lat,lng, props.forecast).then((data)=>{
+                                            if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
+                                                auxTableData[1] = data.features[0].properties.GRAY_INDEX.toFixed(2);
+                                            }
+                                            let oLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[2]+"_"+props.scenario
+                                            GeoFeatures.get_value(oLayer,lat,lng, props.forecast).then((data)=>{
+                                                if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
+                                                    auxTableData[2] = data.features[0].properties.GRAY_INDEX.toFixed(2);
+                                                }
+                                                marker = L.marker([lat, lng], { icon }).addTo(map)
+                                                    .bindPopup(`optimal N amount: ${auxTableData[0]} ${unitPopupMessage} <br/>
+                                                    optimal P amount: ${auxTableData[1]} ${unitPopupMessage}<br/>
+                                                    optimal yield amount: ${auxTableData[2]} ${unitPopupMessage}`)
+                                                    .openPopup();
+                                            });
+                                        });
+                                    }
+                                });
+                            }
+
+                            if((layer_name.includes(geoserverLayers[3])) || (layer_name.includes(geoserverLayers[4]))){
+                                //Getting urea data  	fertilizer_et:et_wheat_optimal_nutrients_n_normal 
+                                let ureaLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[3]+"_"+props.scenario
+                                GeoFeatures.get_value(ureaLayer,lat,lng, props.forecast).then((data)=>{
+                                    if(data.features[0]?.properties.GRAY_INDEX.toFixed(2) > 0) {
+                                        auxTableData[3] = data.features[0].properties.GRAY_INDEX.toFixed(2);
+                                    }
+                                    //Getting nps data
+                                    let npsLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[4]+"_"+props.scenario
+                                        GeoFeatures.get_value(npsLayer,lat,lng, props.forecast).then((data)=>{
+                                            if(data.features[0] && data.features[0]?.properties.GRAY_INDEX.toFixed(2) > 0) {
+                                                auxTableData[4] = data.features[0].properties.GRAY_INDEX.toFixed(2);
+                                            }
+                                            marker = L.marker([lat, lng], { icon }).addTo(map)
+                                                .bindPopup(`fertilizer Urea amount: ${auxTableData[3]} ${unitPopupMessage} <br/>
+                                                fertilizer NPS amount: ${auxTableData[4]} ${unitPopupMessage}`)
+                                                .openPopup(); 
+                                        });
+                                });
+                            }
+
+                            if((layer_name.includes(geoserverLayers[5])) || (layer_name.includes(geoserverLayers[6]))){
+                                //Getting vcompos data  	fertilizer_et:et_wheat_optimal_nutrients_n_normal 
+                                let nLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[5]+"_"+props.scenario
+                                GeoFeatures.get_value(nLayer,lat,lng, props.forecast).then((data)=>{
+                                    if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
+                                        auxTableData[5] = data.features[0].properties.GRAY_INDEX.toFixed(2);
+                                    }
+                                    //Getting compos data
+                                    let pLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[6]+"_"+props.scenario
+                                    GeoFeatures.get_value(pLayer,lat,lng, props.forecast).then((data)=>{
+                                        if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
+                                            auxTableData[6] = data.features[0].properties.GRAY_INDEX.toFixed(2);
+                                        }
+                                        marker = L.marker([lat, lng], { icon }).addTo(map)
+                                            .bindPopup(`vermi-compost: ${auxTableData[5]} ${unitPopupMessage} <br/>
+                                            compost: ${auxTableData[6]} ${unitPopupMessage}`)
+                                            .openPopup();
+                                            
+                                    });
+                            
+                                });
+
+                            }
+                        }
+                        
+                    }
+                    
+                });
+            }
+        })
+        
+       
+    }
     
     React.useEffect(() => {
         if (mapRef)
@@ -127,147 +277,7 @@ function Map(props) {
 
         setRefMap(map);
         
-        map.target.on("click", function (e) {
-            //props.onClick(e, map);
-            const { lat, lng } = e.latlng;
 
-            //Just one marker at once
-            if (marker !== null) {
-                map.target.removeLayer(marker);
-            }
-                
-            // The object map has many layers. By default OSM is 35, but custom layers have different ids
-            Object.keys(map.target._layers).forEach(function(key,index) {
-                if(map.target._layers[key].wmsParams !== undefined){
-                    //Yield layer name
-                    const layer_name = map.target._layers[key].options.layers;
-
-                    const popUpMessage = (layer_name.includes("optimal_nutrients")) ? "optimal nutrient amount: ": 
-                    (layer_name.includes("yieldtypes")) ? "optimal yield amount: " : 
-                    (layer_name.includes(geoserverLayers[3]) || layer_name.includes(geoserverLayers[4])) ? "fertilizer amount: " : 
-                    (layer_name.includes(geoserverLayers[5])) ? "vermi-compost: " : 
-                    (layer_name.includes(geoserverLayers[6])) ? "compost: " : "" 
-                
-                    const unitPopupMessage = popUpMessage===""?"": (layer_name.includes(geoserverLayers[5]) || layer_name.includes(geoserverLayers[6])) ? " ton/ha" : " kg/ha";
-                    
-                    if (props.type.includes("report")) {
-                        if((layer_name.includes(geoserverLayers[2]))){
-                            //Getting N data  	fertilizer_et:et_wheat_optimal_nutrients_n_normal 
-                            let nLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[0]+"_"+props.scenario
-                            GeoFeatures.get_value(nLayer,lat,lng).then((data)=>{
-                                if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
-                                    auxTableData[0] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                    props.setTableData({n: auxTableData[0], p: auxTableData[1], yieldData: auxTableData[2]})
-
-                                }
-                        
-                            });
-                            //Getting P data
-                            let pLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[1]+"_"+props.scenario
-                            GeoFeatures.get_value(pLayer,lat,lng).then((data)=>{
-                                if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
-                                    auxTableData[1] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                    //setting table data
-                                    props.setTableData({n: auxTableData[0], p: auxTableData[1], yieldData: auxTableData[2]})
-                                }
-                            });
-                        }
-                    
-                        //Making a popup
-                        GeoFeatures.get_value(layer_name,lat,lng)
-                        .then((data)=>{ 
-                            if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0 && popUpMessage != "") {
-                                
-                                marker = L.marker([lat, lng], { icon }).addTo(map.target)
-                                    .bindPopup(popUpMessage + data.features[0].properties.GRAY_INDEX.toFixed(2) + unitPopupMessage)
-                                    .openPopup();
-                                    auxTableData[2] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                    if(layer_name.includes(geoserverLayers[2])){
-                                        props.setTableData({n: auxTableData[0], p: auxTableData[1], yieldData: auxTableData[2]})
-                                    }
-                            }
-                        });
-                    }else{
-                        if((layer_name.includes(geoserverLayers[2])) || (layer_name.includes(geoserverLayers[1])) || (layer_name.includes(geoserverLayers[0]))){
-                            //Getting N data  	fertilizer_et:et_wheat_optimal_nutrients_n_normal 
-                            let nLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[0]+"_"+props.scenario
-                            GeoFeatures.get_value(nLayer,lat,lng).then((data)=>{
-                                if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
-                                    auxTableData[0] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                    
-                                    //Getting P data
-                                    let pLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[1]+"_"+props.scenario
-                                    GeoFeatures.get_value(pLayer,lat,lng).then((data)=>{
-                                        if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
-                                            auxTableData[1] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                        }
-                                        let oLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[2]+"_"+props.scenario
-                                        GeoFeatures.get_value(oLayer,lat,lng).then((data)=>{
-                                            if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
-                                                auxTableData[2] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                            }
-                                            marker = L.marker([lat, lng], { icon }).addTo(map.target)
-                                                .bindPopup(`optimal N amount: ${auxTableData[0]} ${unitPopupMessage} <br/>
-                                                optimal P amount: ${auxTableData[1]} ${unitPopupMessage}<br/>
-                                                optimal yield amount: ${auxTableData[2]} ${unitPopupMessage}`)
-                                                .openPopup();
-                                        });
-                                    });
-                                }
-                            });
-                        }
-    
-                        if((layer_name.includes(geoserverLayers[3])) || (layer_name.includes(geoserverLayers[4]))){
-                            //Getting urea data  	fertilizer_et:et_wheat_optimal_nutrients_n_normal 
-                            let ureaLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[3]+"_"+props.scenario
-                            GeoFeatures.get_value(ureaLayer,lat,lng).then((data)=>{
-                                if(data.features[0]?.properties.GRAY_INDEX.toFixed(2) > 0) {
-                                    auxTableData[3] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                }
-                                //Getting nps data
-                                let npsLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[4]+"_"+props.scenario
-                                    GeoFeatures.get_value(npsLayer,lat,lng).then((data)=>{
-                                        if(data.features[0] && data.features[0]?.properties.GRAY_INDEX.toFixed(2) > 0) {
-                                            auxTableData[4] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                        }
-                                        marker = L.marker([lat, lng], { icon }).addTo(map.target)
-                                            .bindPopup(`fertilizer Urea amount: ${auxTableData[3]} ${unitPopupMessage} <br/>
-                                            fertilizer NPS amount: ${auxTableData[4]} ${unitPopupMessage}`)
-                                            .openPopup(); 
-                                    });
-                            });
-                        }
-    
-                        if((layer_name.includes(geoserverLayers[5])) || (layer_name.includes(geoserverLayers[6]))){
-                            //Getting vcompos data  	fertilizer_et:et_wheat_optimal_nutrients_n_normal 
-                            let nLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[5]+"_"+props.scenario
-                            GeoFeatures.get_value(nLayer,lat,lng).then((data)=>{
-                                if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
-                                    auxTableData[5] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                }
-                                //Getting compos data
-                                let pLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[6]+"_"+props.scenario
-                                GeoFeatures.get_value(pLayer,lat,lng).then((data)=>{
-                                    if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
-                                        auxTableData[6] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                    }
-                                    marker = L.marker([lat, lng], { icon }).addTo(map.target)
-                                        .bindPopup(`vermi-compost: ${auxTableData[5]} ${unitPopupMessage} <br/>
-                                        compost: ${auxTableData[6]} ${unitPopupMessage}`)
-                                        .openPopup();
-                                        
-                                });
-                        
-                            });
-    
-                        }
-                    }
-                    
-                }
-                
-            });
-            
-            });
     };
 
 
@@ -436,16 +446,16 @@ function Map(props) {
                         </LayersControl> 
                     : props.type === "recommendation_report" ?
                         <LayersControl position="topright" collapsed={true}>
-                            {scenarios.map(scenario => {
+                            {props.scenarios.map(scenario => {
                                 return <BaseLayer key={scenario} name={scenario} checked={scenario === 'normal'} >
                                     <WMSTileLayer
-                                        key={`fertilizer_et:et_wheat_yieldtypes_optimal_${scenario}`}
-                                        layers={`fertilizer_et:et_wheat_yieldtypes_optimal_${scenario}`}
+                                        key={`fertilizer_et:et_${props.crop}_yieldtypes_optimal_${scenario}`}
+                                        layers={`fertilizer_et:et_${props.crop}_yieldtypes_optimal_${scenario}`}
                                         attribution=''
                                         url={getUrlService('fertilizer_et', 'wms')}
                                         format={"image/png"}
                                         transparent={true}
-                                        params={{ 'time': "2022-7" }}
+                                        params={{ 'time': props.forecast }}
                                         eventHandlers={{
                                             add: (e) => {
                                                 onLayerChange(e.target.options.layers);
@@ -461,17 +471,17 @@ function Map(props) {
                     : props.type === "nps_urea_report" ?
                         <LayersControl position="topright" collapsed={true}>
                             {fertilizer.map((item) => {
-                                return scenarios.map(scenario => {
+                                return props.scenarios.map(scenario => {
                                     return <BaseLayer key={`${item}_${scenario}`} name={`${item} ${scenario}`} checked={(item === "nps" && scenario === "normal")}>
 
                                         <WMSTileLayer
-                                            key={"fertilizer_et:et_wheat_" + item + "_probabilistic_" + scenario}
-                                            layers={"fertilizer_et:et_wheat_" + item + "_probabilistic_" + scenario}
+                                            key={"fertilizer_et:et_" + props.crop + "_" + item + "_probabilistic_" + scenario}
+                                            layers={"fertilizer_et:et_" + props.crop + "_" + item + "_probabilistic_" + scenario}
                                             attribution=''
                                             url={getUrlService('fertilizer_et', 'wms')}
                                             format={"image/png"}
                                             transparent={true}
-                                            params={{ 'time': "2022-7" }}
+                                            params={{ 'time': props.forecast }}
                                             eventHandlers={{
                                                 add: (e) => {
                                                     onLayerChange(e.target.options.layers);
@@ -486,17 +496,17 @@ function Map(props) {
                     : props.type === "compost_report" &&
                         <LayersControl position="topright" collapsed={true}>
                             {compost.map((item) => {
-                                return scenarios.map(scenario => {
+                                return props.scenarios.map(scenario => {
                                     return <BaseLayer key={`${item}_${scenario}`}  name={`${item} ${scenario}`} checked={(item === "compost" && scenario === "normal")}>
 
                                         <WMSTileLayer
-                                            key={"fertilizer_et:et_wheat_" + item + "_probabilistic_" + scenario}
-                                            layers={"fertilizer_et:et_wheat_" + item + "_probabilistic_" + scenario}
+                                            key={"fertilizer_et:et_" + props.crop + "_" + item + "_probabilistic_" + scenario}
+                                            layers={"fertilizer_et:et_" + props.crop + "_" + item + "_probabilistic_" + scenario}
                                             attribution=''
                                             url={getUrlService('fertilizer_et', 'wms')}
                                             format={"image/png"}
                                             transparent={true}
-                                            params={{ 'time': "2022-7" }}
+                                            params={{ 'time': props.forecast }}
                                             eventHandlers={{
                                                 add: (e) => {
                                                     onLayerChange(e.target.options.layers);
@@ -513,6 +523,7 @@ function Map(props) {
                     props.legend &&
                         <MapLegend currentLayer={currentLayer} geoserverLayers={geoserverLayers}/>
                 }
+                <Markers />
                 <ScaleControl position="bottomleft" />
                 <div className="leaflet-top leaflet-left">
                     <ZoomControlWithReset bounds={props.bounds? props.bounds: ETHIOPIA_BOUNDS} />
