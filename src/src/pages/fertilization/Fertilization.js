@@ -30,8 +30,10 @@ function Fertilization() {
 
     // change scenario dominant
     React.useEffect(() => {
-        if ( forecast !== "2022-07") {
-          setOptScenarios( [...opt_scenarios, { label: "Dominant", value: "dominant" }] )
+        if ( forecast && forecast !== "2022-07" ) {
+            if ( !opt_scenarios.includes({ label: "Dominant", value: "dominant" }) ) {
+                setOptScenarios( [...opt_scenarios, { label: "Dominant", value: "dominant" } ] )
+            }
         } else {
           setOptScenarios( opt_scenarios.filter(filter => filter.value !== "dominant"))
         }
@@ -44,7 +46,7 @@ function Fertilization() {
             axios.get(Configuration.get_url_api_base() + `forecast/${cropFound.id}`)
             .then(response => {
                 const date = response.data.map(forecast => ({ label: forecast.date, value: forecast.date }))
-                setForecast(date[0].value)
+                setForecast(date.at(-1).value)
                 setOptForecast(date);
             }); 
         }

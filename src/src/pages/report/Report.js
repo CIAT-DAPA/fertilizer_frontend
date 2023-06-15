@@ -40,7 +40,9 @@ function Report() {
         if ( reportInput.kebele && forecasts.length > 0 ) {
 
             if ( forecast !== "2022-07" ) {
-                setOptScenarios( [...opt_scenarios, "dominant" ] )
+                if ( !opt_scenarios.includes("dominant") ) {
+                    setOptScenarios( [...opt_scenarios, "dominant" ] )
+                }
             } else {
                 setOptScenarios( opt_scenarios.filter(filter => filter !== "dominant"))
             }
@@ -77,7 +79,7 @@ function Report() {
             .then(response => {
                 const date = response.data.map(forecast => ({ label: forecast.date, value: forecast.date }))
                 setForecasts(response.data);
-                setForecast(date[0].value);
+                setForecast(date.at(-1).value);
                 setOptForecast(date);
             });
         }
