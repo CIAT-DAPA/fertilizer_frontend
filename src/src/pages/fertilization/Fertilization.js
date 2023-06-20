@@ -3,6 +3,7 @@ import Sidebar from '../../components/sidebar/Sidebar';
 import Map from '../../components/map/Map';
 import axios from 'axios';
 import Configuration from "../../conf/Configuration";
+import Spinners from '../../components/loading/Spinners';
 
 function Fertilization() {
     const [opt_forecast, setOptForecast] = React.useState([]);
@@ -68,6 +69,7 @@ function Fertilization() {
 
     return (
         <div>
+            <Spinners/>
             <div className='mt-3'>
 
                 <h2 className="font-link text-center">Fertilizer advisories</h2>

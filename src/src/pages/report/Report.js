@@ -12,6 +12,8 @@ import DonutChart from '../../components/chart/DonutCharts';
 import ColumnChart from '../../components/chart/ColumnChart';
 import Configuration from "../../conf/Configuration";
 import SelectFilters from '../../components/select_filters/SelectFilters';
+import Spinners from '../../components/loading/Spinners';
+import LoadingReport from "../../components/loading/LoadingReport";
 const bbox = require('geojson-bbox');
 
 function Report() {
@@ -24,7 +26,7 @@ function Report() {
     const [opt_forecast, setOptForecast] = React.useState([]);
     const [forecast, setForecast] = React.useState();
     const [opt_crops, setOptCrops] = React.useState([]);
-    const [opt_scenarios, setOptScenarios] = React.useState([ "normal", "above", "below" ]);
+    const [opt_scenarios, setOptScenarios] = React.useState(["normal", "above", "below"]);
     const [crop, setCrop] = React.useState();
     const [scenario, setScenario] = React.useState(opt_scenarios[0].value);
     const [geoJson, setGeoJson] = React.useState();
@@ -33,59 +35,64 @@ function Report() {
     const [seasonal, setSeasonal] = React.useState(null);
     const [forecasts, setForecasts] = React.useState([]);
     const [crops, setCrops] = React.useState([])
+    const [load, setLoad] = React.useState(false);
 
     // changing scenarios and loading data for graphs when date forescat changes
     React.useEffect(() => {
-
-        if ( reportInput.kebele && forecasts.length > 0 ) {
-
-            if ( forecast !== "2022-07" ) {
-                if ( !opt_scenarios.includes("dominant") ) {
-                    setOptScenarios( [...opt_scenarios, "dominant" ] )
+        const fetchData = async () => {
+            setLoad(false);
+            if (reportInput.kebele && forecasts.length > 0) {
+                if (forecast !== "2022-07") {
+                    if (!opt_scenarios.includes("dominant")) {
+                        setOptScenarios([...opt_scenarios, "dominant"])
+                    }
+                } else {
+                    setOptScenarios(opt_scenarios.filter(filter => filter !== "dominant"))
                 }
-            } else {
-                setOptScenarios( opt_scenarios.filter(filter => filter !== "dominant"))
+
+                const forecastFound = forecasts.find(prop => prop.date === forecast)
+                await axios.get(Configuration.get_url_api_base() + "metrics/" + reportInput.kebele[0])
+                    .then(response => {
+                        setBarChartData(response.data.filter(data => data.forecast === forecastFound.id));
+                    });
+
+                await axios.get(Configuration.get_url_api_base() + "risk/" + reportInput.kebele[0])
+                    .then(response => {
+                        setRisk(response?.data[0]?.risk?.values[0])
+                        setLoad(true)
+                    });
+
+                if (reportInput.kebele[3]) {
+                    await axios.get(Configuration.get_url_aclimate_api_base() + "Forecast/Climate/" + reportInput.kebele[3] + "/false/json")
+                        .then(response => {
+                            console.log(response)
+                            if (response.data?.climate[0]?.data)
+                                setSeasonal(response.data?.climate[0])
+                        }
+                        );
+                }
+                ;
             }
-
-            const forecastFound = forecasts.find(prop => prop.date === forecast)
-            axios.get(Configuration.get_url_api_base() + "metrics/" + reportInput.kebele[0])
-                .then(response => {
-                    setBarChartData(response.data.filter(data => data.forecast === forecastFound.id ));
-                });
-
-            axios.get(Configuration.get_url_api_base() + "risk/" + reportInput.kebele[0])
-                .then(response => {
-                    setRisk(response?.data[0]?.risk?.values[0])
-                });
-
-            if (reportInput.kebele[3]){
-                axios.get(Configuration.get_url_aclimate_api_base() + "Forecast/Climate/" + reportInput.kebele[3] + "/false/json")
-                .then(response => {
-                    console.log(response)
-                    if (response.data?.climate[0]?.data)
-                        setSeasonal(response.data?.climate[0])
-                });
-            }        
-
         }
+        fetchData()
 
     }, [forecast]);
 
     // load of date forecast by crop
     React.useEffect(() => {
-        if ( crop && crops.length > 0 ) {
+        if (crop && crops.length > 0) {
             const cropFound = crops.find(prop => prop.name === crop)
             axios.get(Configuration.get_url_api_base() + `forecast/${cropFound.id}`)
-            .then(response => {
-                const date = response.data.map(forecast => ({ label: forecast.date, value: forecast.date }))
-                setForecasts(response.data);
-                setForecast(date.at(-1).value);
-                setOptForecast(date);
-            });
+                .then(response => {
+                    const date = response.data.map(forecast => ({ label: forecast.date, value: forecast.date }))
+                    setForecasts(response.data);
+                    setForecast(date.at(-1).value);
+                    setOptForecast(date);
+                });
         }
-        
+
     }, [crop])
-    
+
     // Initial load, crops and geojson
     React.useEffect(() => {
         if (reportInput.kebele) {
@@ -95,15 +102,15 @@ function Report() {
                 setGeoJson(data_geo)
             });
         }
-        if ( opt_forecast.length === 0) {
+        if (opt_forecast.length === 0) {
             axios.get(Configuration.get_url_api_base() + "crops")
-            .then(response => {
-                const crops = response.data.map(crop => ({ label: crop.name.charAt(0).toUpperCase() + crop.name.slice(1), value: crop.name }))
-                setCrop(crops[0].value)
-                setOptCrops(crops);
-                setCrops(response.data)
-            });
-        } 
+                .then(response => {
+                    const crops = response.data.map(crop => ({ label: crop.name.charAt(0).toUpperCase() + crop.name.slice(1), value: crop.name }))
+                    setCrop(crops[0].value)
+                    setOptCrops(crops);
+                    setCrops(response.data)
+                });
+        }
     }, [])
 
     const changeForecast = event => {
@@ -119,13 +126,13 @@ function Report() {
 
         let html = document.querySelector('#report')
         console.log(html.offsetWidth, html.offsetHeight)
-        let report = new JsPDF('p', 'px', [ html.offsetHeight + 50, html.offsetWidth + 50]);
+        let report = new JsPDF('p', 'px', [html.offsetHeight + 50, html.offsetWidth + 50]);
         const canvas = await html2canvas(html, {
             useCORS: true,
             allowTaint: true,
             onrendered: function (canvas) {
                 document.body.appendChild(canvas);
-    
+
             }
         })
         const img = canvas.toDataURL("image/png");
@@ -137,16 +144,16 @@ function Report() {
     const Location = ({ id }) => {
 
         let name = "";
-        
+
         switch (id) {
             case "recommendation_report":
-                    name= "Optimal yield map"
+                name = "Optimal yield map"
                 break;
             case "nps_urea_report":
-                    name="Fertilizer rate map"
+                name = "Fertilizer rate map"
                 break;
             case "compost_report":
-                    name="Fertilizer rate map (ISFM)"
+                name = "Fertilizer rate map (ISFM)"
                 break;
             default:
                 name = "Location"
@@ -154,7 +161,7 @@ function Report() {
         }
 
         return (
-            <div className="card col-12 col-lg-5 my-1" style={{ minWidth: ((!reportInput.ad_aclimate || !seasonal) && id === "location_report") ? "100%" : "49%", maxHeight: "445.33px" }}>
+            <div className="card col-12 col-lg-5 my-2" style={{ minWidth: ((!reportInput.ad_aclimate || !seasonal) && id === "location_report") ? "100%" : "49%", maxHeight: "445.33px" }}>
                 <div className="card-body">
                     <h5 className="card-title">{name}</h5>
                     {geoJson && (
@@ -185,7 +192,7 @@ function Report() {
     const SeasonalChartCarousel = () => {
         return (
             <div
-                className="card col-12 col-md-5 my-1"
+                className="card col-12 col-md-5 my-2"
                 style={{ minWidth: "49%" }}
                 key="donutCarousel">
                 <div className="card-body">
@@ -214,7 +221,7 @@ function Report() {
     const BarChartFert = ({ name, data, tooltip }) => {
         return (
             <div
-                className="card col-12 col-md-5 my-1"
+                className="card col-12 col-md-5 my-2"
                 key={"bar_chart_" + name}
                 style={{ minWidth: "49%" }}>
                 <div className="card-body">
@@ -233,7 +240,7 @@ function Report() {
     const BarChartYield = ({ name, data }) => {
         return (
             <div
-                className="card col-12 col-md-5 my-1"
+                className="card col-12 col-md-5 my-2"
                 key={"bar_chart_" + name}
                 style={{ minWidth: "49%" }}>
                 <div className="card-body">
@@ -247,100 +254,80 @@ function Report() {
         )
     }
 
-    // loading screen
-    const Spinners = () => {
-        return (
-            <div className='col-12 d-flex justify-content-evenly' style={{ backgroundColor: "white" }} key={"spinners"}>
-                <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                </div>
-                <div className="spinner-border text-success" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                </div>
-                <div className="spinner-border text-warning" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                </div>
-            </div>
-
-        )
-    }
-
     return (
         <main>
-            <br />
-            <section className='container'>
-                <div className="d-flex justify-content-between font-link">
-                    <h3>kebele report: <b>{reportInput.kebele[1]}</b></h3>
-                    <button onClick={createPDF} disabled={ !(barChartData && opt_forecast && forecast) } type="button" className="btn btn-primary">Export</button>
-                </div>
-                {opt_forecast.length > 0 ?
-                    <>
-                        <SelectFilters onChangeCrop={changeCrop} onChangeForecast={changeForecast} opt_forecast={opt_forecast} opt_crops={opt_crops} />
-
-                        {barChartData && opt_forecast && forecast ?
-                            <div id='report'>
-
-                                <div className="row my-3 g-8 row-cols-auto justify-content-between">
-                                    <Location id="location_report" />
-                                    {seasonal && reportInput.ad_aclimate && <SeasonalChartCarousel />}
-                                </div>
-
-                                {reportInput.ad_fertilizer &&
-                                    <>
-                                        <div className="alert alert-light my-3 border" role="alert">
-                                            <p className="font-link-body text-justify">
-                                                Integrated Soil Fertility Management (ISFM) in this study address the integrated use of inorganic fertilizers with organic fertilizer such as verm-icompost, compost, manure, and bio-slurry with a set of locally adapted soil fertility technologies and improved agronomic practices promoted to enhance soil fertility, crop productivity and incomes of smallholder farmers. For this purpose, we developed site-specific recommendations integrated use of organic fertilizer with inorganic fertilizer for profitable wheat production in Ethiopia.
-                                            </p>
-                                            <p className="font-link-body text-justify">
-                                                Urea is the most concentrated solid nitrogen fertilizer which contain 46% nitrogen and no other plant nutrients. It is the most common fertilizer used as a source of nitrogen in Ethiopia. When it is worked into the soil, it is as effective as any other nitrogen fertilizer and is most efficiently utilized on soils with adequate moisture content, so that the gaseous ammonia can go quickly into solution. In the soil, urea changes to ammonium carbonate which may temporarily cause a harmful local high pH and its use need smart management practices such as split application to allow efficient uptake by plant.
-                                            </p>
-                                            <p className="font-link-body text-justify">
-                                                NPS blend fertilizer is a mix of single fertilizers which are mixed during the production process into an instant fertilizer recipe, packaged in a big bag. The composition of the mix is homogeneous throughout the entire big bag. This prevents the nutrients from coagulating and turning into hard layers, enabling easy application of the product into the crop field. Different types of blended fertilizers are available in Ethiopia. The NPS blend fertilizer used for crop production in Ethiopia contain nitrogen (19%), phosphorus (38%) and sulphur (7%).
-                                            </p>
-                                        </div>
+            {reportInput.woreda ? (
+                <>
+                    <br />
+                    <section className='container'>
+                        <div className="d-flex justify-content-between font-link">
+                            <h3>kebele report: <b>{reportInput.kebele[1]}</b></h3>
+                            <button onClick={createPDF} disabled={!(barChartData && opt_forecast && forecast)} type="button" className="btn btn-primary">Export</button>
+                        </div>
+                        {!opt_forecast.length > 0 ? <Spinners /> :
+                            <>
+                                <SelectFilters onChangeCrop={changeCrop} onChangeForecast={changeForecast} opt_forecast={opt_forecast} opt_crops={opt_crops} />
+                                {barChartData && opt_forecast && forecast &&
+                                    <div id='report'>
                                         <div className="row my-3 g-8 row-cols-auto justify-content-between">
-                                            <BarChartFert name={"Fertilizer rate"} data={[barChartData[1], barChartData[3]]}
-                                                tooltip={<p>Urea: compound fertilizer and source of nitrogen <br />
-                                                    NPS: blended fertilizer and source of nitrogen, phosphorus, and sulphur</p>
-                                                } />
-                                            <Location id="nps_urea_report" />
+                                            {!load ? <LoadingReport /> :
+                                                <>
+                                                    <Location id="location_report" />
+                                                    {seasonal && reportInput.ad_aclimate && <SeasonalChartCarousel />}
+                                                    {reportInput.ad_fertilizer &&
+                                                        <>
+                                                            <div className="alert alert-light my-3 border" role="alert">
+                                                                <p className="font-link-body text-justify">
+                                                                    Integrated Soil Fertility Management (ISFM) in this study address the integrated use of inorganic fertilizers with organic fertilizer such as verm-icompost, compost, manure, and bio-slurry with a set of locally adapted soil fertility technologies and improved agronomic practices promoted to enhance soil fertility, crop productivity and incomes of smallholder farmers. For this purpose, we developed site-specific recommendations integrated use of organic fertilizer with inorganic fertilizer for profitable wheat production in Ethiopia.
+                                                                </p>
+                                                                <p className="font-link-body text-justify">
+                                                                    Urea is the most concentrated solid nitrogen fertilizer which contain 46% nitrogen and no other plant nutrients. It is the most common fertilizer used as a source of nitrogen in Ethiopia. When it is worked into the soil, it is as effective as any other nitrogen fertilizer and is most efficiently utilized on soils with adequate moisture content, so that the gaseous ammonia can go quickly into solution. In the soil, urea changes to ammonium carbonate which may temporarily cause a harmful local high pH and its use need smart management practices such as split application to allow efficient uptake by plant.
+                                                                </p>
+                                                                <p className="font-link-body text-justify">
+                                                                    NPS blend fertilizer is a mix of single fertilizers which are mixed during the production process into an instant fertilizer recipe, packaged in a big bag. The composition of the mix is homogeneous throughout the entire big bag. This prevents the nutrients from coagulating and turning into hard layers, enabling easy application of the product into the crop field. Different types of blended fertilizers are available in Ethiopia. The NPS blend fertilizer used for crop production in Ethiopia contain nitrogen (19%), phosphorus (38%) and sulphur (7%).
+                                                                </p>
+                                                            </div>
+                                                                <BarChartFert name={"Fertilizer rate"} data={[barChartData[1], barChartData[3]]}
+                                                                    tooltip={<p>Urea: compound fertilizer and source of nitrogen <br />
+                                                                        NPS: blended fertilizer and source of nitrogen, phosphorus, and sulphur</p>
+                                                                    } />
+                                                                <Location id="nps_urea_report" />
+                                                                <BarChartFert name={"Fertilizer rate (ISFM)"} data={[barChartData[0], barChartData[4]]}
+                                                                    tooltip={<p>ISFM: integrated soil fertility management<br /><br /></p>} />
+                                                                <Location id="compost_report" />
+                                                        </>
+                                                    }
+                                                    {reportInput.ad_optimal &&
+                                                        <>
+                                                            <BarChartYield name={"Optimal yield"} data={[barChartData[2]]} />
+                                                            <Location id="recommendation_report" />
+                                                        </>
+                                                    }
+                                                    {risk && reportInput.ad_risk && <div className={`alert alert-${risk === "High risk" ? "danger" : "warning"} mt-3 text-center w-100`} role="alert">
+                                                        {`Risk: ${risk}`}
+                                                    </div>}
+                                                    {reportInput.ad_fertilizer && <div className="alert alert-light my-2 border w-100" role="alert">
+                                                        <h5>Notes: </h5>
+                                                        <ol>
+                                                            <li>{`This advisory is for agricultural land allotted to wheat in ${forecast.split('-')[0]} main crop season only.`}</li>
+                                                            <li>If there is no sufficient inorganic fertilizer supply, use half inorganic with half organic rates.</li>
+                                                        </ol>
+                                                    </div>}
+                                                </>
+                                            }
                                         </div>
-                                        <div className="row my-3 g-8 row-cols-auto justify-content-between">
-                                            <BarChartFert name={"Fertilizer rate (ISFM)"} data={[barChartData[0], barChartData[4]]}
-                                                tooltip={<p>ISFM: integrated soil fertility management<br /><br /></p>} />
-                                                <Location id="compost_report" />
-                                        </div>
-                                    </>
-                                    
-                                }
-
-                                {reportInput.ad_optimal &&
-                                    <div className="row my-3 g-8 row-cols-auto justify-content-between">
-                                        <BarChartYield name={"Optimal yield"} data={[barChartData[2]]} />
-                                        <Location id="recommendation_report" />
                                     </div>
                                 }
-
-                                {risk && reportInput.ad_risk && <div className={`alert alert-${risk === "High risk" ? "danger" : "warning"} mt-4 text-center`} role="alert">
-                                    {`Risk: ${risk}`}
-                                </div>}
-
-                                {reportInput.ad_fertilizer && <div className="alert alert-light my-3 border" role="alert">
-                                    <h5>Notes: </h5>
-                                    <ol>
-                                        <li>This advisory is for agricultural land allotted to wheat in 2022 main crop season only.</li>
-                                        <li>If there is no sufficient inorganic fertilizer supply, use half inorganic with half organic rates.</li>
-                                    </ol>
-                                </div>}
-                            </div>
-
-                            : <Spinners />
-
+                            </>
                         }
-                    </> : <Spinners />
-                }
-                
-            </section>
+                    </section>
+                </>
+            ) : (
+                <div className="alert alert-danger mt-4 text-center" role="alert">
+                    You have not selected a kebele, go back to the beginning to select one.
+                </div>
+            )}
+
         </main>
     )
 
