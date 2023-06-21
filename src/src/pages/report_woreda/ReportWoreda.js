@@ -132,7 +132,7 @@ function ReportWoreda() {
                                 });
                             });
                         await axios
-                            .get(Configuration.get_url_api_base() + "risk/" + ids)
+                            .get(Configuration.get_url_api_base() + "risk/" + ids + '/' + forecastFound.id)
                             .then((response) => {
                                 //console.log("risk", response.data)
                                 if (response.data.length > 0) {

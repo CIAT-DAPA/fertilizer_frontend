@@ -56,7 +56,7 @@ function Report() {
                         setBarChartData(response.data.filter(data => data.forecast === forecastFound.id));
                     });
 
-                await axios.get(Configuration.get_url_api_base() + "risk/" + reportInput.kebele[0])
+                await axios.get(Configuration.get_url_api_base() + "risk/" + reportInput.kebele[0] + '/' + forecastFound.id)
                     .then(response => {
                         setRisk(response?.data[0]?.risk?.values[0])
                         setLoad(true)
