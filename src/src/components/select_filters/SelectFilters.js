@@ -28,7 +28,7 @@ function SelectFilters(props) {
                         options={props.opt_forecast}
                         onChange={props.onChangeForecast}
                         menuPortalTarget={document.body} 
-                        styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
+                        styles={{ menuPortal: base => ({ ...base, zIndex: 1999 }) }}
                     />
                 </div>
             </div>

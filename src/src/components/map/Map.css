@@ -1,0 +1,19 @@
+.info-label {
+    position: absolute;
+    top: 4px;
+    left: 0;
+    right: 0;
+    margin: auto;
+    width: fit-content;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 10px;
+    z-index: 1900;
+    border-radius: 4px;
+  }
+
+.info-label > span {
+    font-size: small;
+}
