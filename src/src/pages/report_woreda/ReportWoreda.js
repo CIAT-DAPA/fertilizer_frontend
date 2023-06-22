@@ -265,13 +265,13 @@ function ReportWoreda() {
         let name = "";
 
         switch (id) {
-            case "recommendation_report":
+            case "recommendation_report_woreda":
                 name = "Optimal yield map"
                 break;
-            case "nps_urea_report":
+            case "nps_urea_report_woreda":
                 name = "Fertilizer rate map"
                 break;
-            case "compost_report":
+            case "compost_report_woreda":
                 name = "Fertilizer rate map (ISFM)"
                 break;
             default:
@@ -365,7 +365,7 @@ function ReportWoreda() {
                                                                 name={"Optimal yield"}
                                                                 data={[barChartData[2]]}
                                                             />
-                                                            <Location id="recommendation_report" />
+                                                            <Location id="recommendation_report_woreda" />
                                                         </>
                                                     }
                                                     {reportInput.ad_fertilizer &&
@@ -388,13 +388,13 @@ function ReportWoreda() {
                                                                     NPS: blended fertilizer and source of nitrogen, phosphorus, and sulphur</p>
                                                                 }
                                                             />
-                                                            <Location id="nps_urea_report" />
+                                                            <Location id="nps_urea_report_woreda" />
                                                             <BarChartFert
                                                                 name={"Fertilizer rate (ISFM)"}
                                                                 data={[barChartData[0], barChartData[4]]}
                                                                 tooltip={<p>ISFM: integrated soil fertility management<br /><br /></p>}
                                                             />
-                                                            <Location id="compost_report" />
+                                                            <Location id="compost_report_woreda" />
                                                         </>
                                                     }
                                                     {

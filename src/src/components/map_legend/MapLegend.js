@@ -6,7 +6,7 @@ function MapLegend(props) {
     const [photo, setPhoto] = React.useState();
 
     React.useEffect(() => {
-          const image = `https://geo.aclimate.org/geoserver/fertilizer_et/wms?REQUEST=GetLegendGraphic&VERSION=1.3.0&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=fertilizer_et:et_${props.crop}_${props.currentLayer}_${props.scenario}&Transparent=True&LEGEND_OPTIONS=dx:3;fontName:Helvetica`
+          const image = `https://geo.aclimate.org/geoserver/fertilizer_et/wms?REQUEST=GetLegendGraphic&VERSION=1.3.0&FORMAT=image/png&WIDTH=15&HEIGHT=15&LAYER=fertilizer_et:et_${props.crop}_${props.currentLayer}_${props.scenario}&Transparent=True&LEGEND_OPTIONS=dx:3;fontName:Helvetica`
           setPhoto(image)
            
         }, [props.currentLayer, props.crop, props.scenario])

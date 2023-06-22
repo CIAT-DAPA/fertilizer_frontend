@@ -275,10 +275,12 @@ function Map(props) {
     };
     
     const onEachFeature = (feature, layer) => {
-        layer.on({
-          mouseover: highlightFeature,
-          mouseout: resetHighlight,
-        });
+        if (props.type.includes('woreda')){
+            layer.on({
+                mouseover: highlightFeature,
+                mouseout: resetHighlight,
+            });
+        }
     };
 
     return (
@@ -444,7 +446,7 @@ function Map(props) {
                                 />
                             </BaseLayer>
                         </LayersControl> 
-                    : props.type === "recommendation_report" ?
+                    : props.type.includes("recommendation_report") ?
                         <LayersControl position="topright" collapsed={true}>
                             {props.scenarios.map(scenario => {
                                 return <BaseLayer key={scenario} name={scenario} checked={scenario === 'normal'} >
@@ -468,7 +470,7 @@ function Map(props) {
                                 </BaseLayer>
                             })}
                         </LayersControl>
-                    : props.type === "nps_urea_report" ?
+                    : props.type.includes("nps_urea_report") ?
                         <LayersControl position="topright" collapsed={true}>
                             {fertilizer.map((item) => {
                                 return props.scenarios.map(scenario => {
@@ -493,7 +495,7 @@ function Map(props) {
                                 })
                             })}
                         </LayersControl>
-                    : props.type === "compost_report" &&
+                    : props.type.includes("compost_report") &&
                         <LayersControl position="topright" collapsed={true}>
                             {compost.map((item) => {
                                 return props.scenarios.map(scenario => {
