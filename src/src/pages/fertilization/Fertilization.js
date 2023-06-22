@@ -69,7 +69,6 @@ function Fertilization() {
 
     return (
         <div>
-            <Spinners/>
             <div className='mt-3'>
 
                 <h2 className="font-link text-center">Fertilizer advisories</h2>
