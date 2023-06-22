@@ -7,6 +7,7 @@ import Configuration from "../../conf/Configuration";
 import MapLegend from '../map_legend/MapLegend';
 import ZoomControlWithReset from '../map_zoom_reset/ZoomControlWithReset';
 import DrawControl from '../map_draw/DrawControl';
+import './Map.css';
 
 //For reset map view
 const ETHIOPIA_BOUNDS = [  [10, 30],  [8.5, 50],];
@@ -32,6 +33,7 @@ function Map(props) {
     const [mapRef, setRefMap] = React.useState();
     //For changing the layer according to scenerario selected (Sidebar)
     const [lastSelected, setLastSelected] = React.useState();
+    const [selectedFeature, setSelectedFeature] = React.useState(null);
 
     const { BaseLayer } = LayersControl;
     const icon = L.icon({iconSize: [25, 41],iconAnchor: [10, 41],popupAnchor: [2, -40],iconUrl: "https://unpkg.com/leaflet@1.7/dist/images/marker-icon.png",shadowUrl: "https://unpkg.com/leaflet@1.7/dist/images/marker-shadow.png"});
@@ -104,8 +106,7 @@ function Map(props) {
 
         const map = useMapEvents({
             click(e) {
-                 const { lat, lng } = e.latlng;
-
+                const { lat, lng } = e.latlng;
                 //Just one marker at once
                 if (map) {
                     map.eachLayer((layer) => {
@@ -130,27 +131,6 @@ function Map(props) {
                         const unitPopupMessage = popUpMessage===""?"": (layer_name.includes(geoserverLayers[5]) || layer_name.includes(geoserverLayers[6])) ? " ton/ha" : " kg/ha";
                         
                         if (props.type.includes("report")) {
-                            if((layer_name.includes(geoserverLayers[2]))){
-                                //Getting N data  	fertilizer_et:et_wheat_optimal_nutrients_n_normal 
-                                let nLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[0]+"_"+props.scenario
-                                GeoFeatures.get_value(nLayer,lat,lng, props.forecast).then((data)=>{
-                                    if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
-                                        auxTableData[0] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                        props.setTableData({n: auxTableData[0], p: auxTableData[1], yieldData: auxTableData[2]})
-
-                                    }
-                            
-                                });
-                                //Getting P data
-                                let pLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[1]+"_"+props.scenario
-                                GeoFeatures.get_value(pLayer,lat,lng, props.forecast).then((data)=>{
-                                    if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
-                                        auxTableData[1] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                        //setting table data
-                                        props.setTableData({n: auxTableData[0], p: auxTableData[1], yieldData: auxTableData[2]})
-                                    }
-                                });
-                            }
                         
                             //Making a popup
                             GeoFeatures.get_value(layer_name,lat,lng, props.forecast)
@@ -280,6 +260,28 @@ function Map(props) {
 
     };
 
+    const highlightFeature = (e) => {
+        const layer = e.target;
+        const properties = layer.feature.properties.name_adm4;
+        setSelectedFeature(properties);
+        //layer.setStyle({ weight: 2, color: '#666', dashArray: '', fillOpacity: 0.5 });
+        //layer.bindPopup(`<pre>${JSON.stringify(properties, null, 4)}</pre>`).openPopup();
+    };
+    
+    const resetHighlight = (e) => {
+        const layer = e.target;
+        //layer.setStyle({ weight: 1, color: '#3388ff', dashArray: '3', fillOpacity: 0.2 });
+        setSelectedFeature(null);
+    };
+    
+    const onEachFeature = (feature, layer) => {
+        if (props.type.includes('woreda')){
+            layer.on({
+                mouseover: highlightFeature,
+                mouseout: resetHighlight,
+            });
+        }
+    };
 
     return (
         <>
@@ -444,7 +446,7 @@ function Map(props) {
                                 />
                             </BaseLayer>
                         </LayersControl> 
-                    : props.type === "recommendation_report" ?
+                    : props.type.includes("recommendation_report") ?
                         <LayersControl position="topright" collapsed={true}>
                             {props.scenarios.map(scenario => {
                                 return <BaseLayer key={scenario} name={scenario} checked={scenario === 'normal'} >
@@ -468,7 +470,7 @@ function Map(props) {
                                 </BaseLayer>
                             })}
                         </LayersControl>
-                    : props.type === "nps_urea_report" ?
+                    : props.type.includes("nps_urea_report") ?
                         <LayersControl position="topright" collapsed={true}>
                             {fertilizer.map((item) => {
                                 return props.scenarios.map(scenario => {
@@ -493,7 +495,7 @@ function Map(props) {
                                 })
                             })}
                         </LayersControl>
-                    : props.type === "compost_report" &&
+                    : props.type.includes("compost_report") &&
                         <LayersControl position="topright" collapsed={true}>
                             {compost.map((item) => {
                                 return props.scenarios.map(scenario => {
@@ -521,7 +523,7 @@ function Map(props) {
                 }
                 {
                     props.legend &&
-                        <MapLegend currentLayer={currentLayer} geoserverLayers={geoserverLayers}/>
+                        <MapLegend currentLayer={currentLayer} geoserverLayers={geoserverLayers} crop={props.crop} scenario={props.scenario}/>
                 }
                 <Markers />
                 <ScaleControl position="bottomleft" />
@@ -534,9 +536,13 @@ function Map(props) {
                         setPolygonCoords={setPolygonCoords}
                         />
                 }
-            
+                {selectedFeature && (
+                    <div className="info-label">
+                        <span className='text-uppercase'>{selectedFeature}</span>
+                    </div>
+                )}
                 {
-                props.geo ? <GeoJSON attribution="" key={"advisory_geojson"+props.geo.timeStamp} data={props.geo} style={props.styleGeojson} /> : <GeoJSON attribution="" />
+                props.geo ? <GeoJSON attribution="" key={"advisory_geojson"+props.geo.timeStamp} data={props.geo} style={props.styleGeojson} onEachFeature={onEachFeature} on/> : <GeoJSON attribution="" />
                 }
             </MapContainer>
            

@@ -11,6 +11,8 @@ import ColumnChart from "../../components/chart/ColumnChart";
 import Configuration from "../../conf/Configuration";
 import Chart from "react-apexcharts";
 import SelectFilters from '../../components/select_filters/SelectFilters';
+import Spinners from '../../components/loading/Spinners';
+import LoadingReport from "../../components/loading/LoadingReport";
 const bbox = require("geojson-bbox");
 
 function ReportWoreda() {
@@ -32,7 +34,7 @@ function ReportWoreda() {
     const [opt_forecast, setOptForecast] = React.useState([]);
     const [forecast, setForecast] = React.useState();
     const [opt_crops, setOptCrops] = React.useState([]);
-    const [opt_scenarios, setOptScenarios] = React.useState([ "normal", "above", "below" ]);
+    const [opt_scenarios, setOptScenarios] = React.useState(["normal", "above", "below"]);
     const [crop, setCrop] = React.useState();
     const [forecasts, setForecasts] = React.useState([]);
     const [crops, setCrops] = React.useState([])
@@ -41,62 +43,64 @@ function ReportWoreda() {
         setLoad(false);
         if (reportInput.woreda) {
 
-            if ( forecast !== "2022-07" ) {
-                setOptScenarios( [...opt_scenarios, "dominant" ] )
+            if (forecast !== "2022-07") {
+                if (!opt_scenarios.includes("dominant")) {
+                    setOptScenarios([...opt_scenarios, "dominant"])
+                }
             } else {
-                setOptScenarios( opt_scenarios.filter(filter => filter !== "dominant"))
+                setOptScenarios(opt_scenarios.filter(filter => filter !== "dominant"))
             }
 
             const forecastFound = forecasts.find(prop => prop.date === forecast)
             let kebeles;
             let ids = "";
             const suma = [
-                    {
-                        type: "63865d9f68c981103580abf0",
-                        values: [
-                            { s: 1, values: [0] },
-                            [{ s: 2, values: [0] }],
-                            [{ s: 3, values: [0] }],
-                            [{ s: 4, values: [0] }],
-                        ],
-                    },
-                    {
-                        type: "63865ef468c981103580e666",
-                        values: [
-                            { s: 1, values: [0] },
-                            [{ s: 2, values: [0] }],
-                            [{ s: 3, values: [0] }],
-                            [{ s: 4, values: [0] }],
-                        ],
-                    },
-                    {
-                        type: "638660ad68c98110358120dc",
-                        values: [
-                            { s: 1, values: [0] },
-                            [{ s: 2, values: [0] }],
-                            [{ s: 3, values: [0] }],
-                            [{ s: 4, values: [0] }],
-                        ],
-                    },
-                    {
-                        type: "638662c668c9811035815b52",
-                        values: [
-                            { s: 1, values: [0] },
-                            [{ s: 2, values: [0] }],
-                            [{ s: 3, values: [0] }],
-                            [{ s: 4, values: [0] }],
-                        ],
-                    },
-                    {
-                        type: "6386653e68c98110358195c8",
-                        values: [
-                            { s: 1, values: [0] },
-                            [{ s: 2, values: [0] }],
-                            [{ s: 3, values: [0] }],
-                            [{ s: 4, values: [0] }],
-                        ],
-                    },
-                ];
+                {
+                    type: "63865d9f68c981103580abf0",
+                    values: [
+                        { s: 1, values: [0] },
+                        [{ s: 2, values: [0] }],
+                        [{ s: 3, values: [0] }],
+                        [{ s: 4, values: [0] }],
+                    ],
+                },
+                {
+                    type: "63865ef468c981103580e666",
+                    values: [
+                        { s: 1, values: [0] },
+                        [{ s: 2, values: [0] }],
+                        [{ s: 3, values: [0] }],
+                        [{ s: 4, values: [0] }],
+                    ],
+                },
+                {
+                    type: "638660ad68c98110358120dc",
+                    values: [
+                        { s: 1, values: [0] },
+                        [{ s: 2, values: [0] }],
+                        [{ s: 3, values: [0] }],
+                        [{ s: 4, values: [0] }],
+                    ],
+                },
+                {
+                    type: "638662c668c9811035815b52",
+                    values: [
+                        { s: 1, values: [0] },
+                        [{ s: 2, values: [0] }],
+                        [{ s: 3, values: [0] }],
+                        [{ s: 4, values: [0] }],
+                    ],
+                },
+                {
+                    type: "6386653e68c98110358195c8",
+                    values: [
+                        { s: 1, values: [0] },
+                        [{ s: 2, values: [0] }],
+                        [{ s: 3, values: [0] }],
+                        [{ s: 4, values: [0] }],
+                    ],
+                },
+            ];
             const risks = {};
             axios
                 .get(Configuration.get_url_api_base() + "adm4/" + reportInput.woreda[0])
@@ -122,16 +126,16 @@ function ReportWoreda() {
                                         kebele.values[1][0].values[0] / kebeles.length;
                                     aux[0].values[2][0].values[0] +=
                                         kebele.values[2][0].values[0] / kebeles.length;
-                                    kebele.values[3] && aux[0].values[3] ? 
-                                        ( aux[0].values[3][0].values[0] += kebele.values[3][0].values[0] / kebeles.length )
+                                    kebele.values[3] && aux[0].values[3] ?
+                                        (aux[0].values[3][0].values[0] += kebele.values[3][0].values[0] / kebeles.length)
                                         : (aux[0].values.splice(3, 1))
                                 });
                             });
                         await axios
-                            .get(Configuration.get_url_api_base() + "risk/" + ids)
+                            .get(Configuration.get_url_api_base() + "risk/" + ids + '/' + forecastFound.id)
                             .then((response) => {
                                 //console.log("risk", response.data)
-                                if(response.data.length > 0){
+                                if (response.data.length > 0) {
                                     response.data.map((dato) => {
                                         if (risks[dato.risk.values[0]])
                                             risks[dato.risk.values[0]] += 1;
@@ -203,30 +207,30 @@ function ReportWoreda() {
                 }
             );
         }
-        if ( opt_forecast.length === 0) {
+        if (opt_forecast.length === 0) {
             axios.get(Configuration.get_url_api_base() + "crops")
-            .then(response => {
-                const crops = response.data.map(crop => ({ label: crop.name.charAt(0).toUpperCase() + crop.name.slice(1), value: crop.name }))
-                setCrop(crops[0].value)
-                setOptCrops(crops);
-                setCrops(response.data)
-            });
-        } 
+                .then(response => {
+                    const crops = response.data.map(crop => ({ label: crop.name.charAt(0).toUpperCase() + crop.name.slice(1), value: crop.name }))
+                    setCrop(crops[0].value)
+                    setOptCrops(crops);
+                    setCrops(response.data)
+                });
+        }
     }, [])
 
     // load of date forecast by crop
     React.useEffect(() => {
-        if ( crop && crops.length > 0 ) {
+        if (crop && crops.length > 0) {
             const cropFound = crops.find(prop => prop.name === crop)
             axios.get(Configuration.get_url_api_base() + `forecast/${cropFound.id}`)
-            .then(response => {
-                const date = response.data.map(forecast => ({ label: forecast.date, value: forecast.date }))
-                setForecasts(response.data);
-                setForecast(date[0].value);
-                setOptForecast(date);
-            });
+                .then(response => {
+                    const date = response.data.map(forecast => ({ label: forecast.date, value: forecast.date }))
+                    setForecasts(response.data);
+                    setForecast(date.at(-1).value);
+                    setOptForecast(date);
+                });
         }
-        
+
     }, [crop])
 
     const changeForecast = event => {
@@ -242,13 +246,13 @@ function ReportWoreda() {
     const createPDF = async () => {
         let html = document.querySelector('#report')
         console.log(html.offsetWidth, html.offsetHeight)
-        let report = new JsPDF('p', 'px', [ html.offsetHeight + 50, html.offsetWidth + 50]);
+        let report = new JsPDF('p', 'px', [html.offsetHeight + 50, html.offsetWidth + 50]);
         const canvas = await html2canvas(html, {
             useCORS: true,
             allowTaint: true,
             onrendered: function (canvas) {
                 document.body.appendChild(canvas);
-    
+
             }
         })
         const img = canvas.toDataURL("image/png");
@@ -256,19 +260,19 @@ function ReportWoreda() {
         report.save(`Report_Woreda_${reportInput.woreda[1]}.pdf`);
     };
 
-    const Location = ({id}) => {
+    const Location = ({ id }) => {
 
         let name = "";
-        
+
         switch (id) {
-            case "recommendation_report":
-                    name= "Optimal yield map"
+            case "recommendation_report_woreda":
+                name = "Optimal yield map"
                 break;
-            case "nps_urea_report":
-                    name="Fertilizer rate map"
+            case "nps_urea_report_woreda":
+                name = "Fertilizer rate map"
                 break;
-            case "compost_report":
-                    name="Fertilizer rate map (ISFM)"
+            case "compost_report_woreda":
+                name = "Fertilizer rate map (ISFM)"
                 break;
             default:
                 name = "Location"
@@ -334,26 +338,6 @@ function ReportWoreda() {
         );
     };
 
-    const Spinners = () => {
-        return (
-            <div
-                className="col-12 d-flex justify-content-evenly m-4"
-                style={{ backgroundColor: "white" }}
-                key={"spinners"}
-            >
-                <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                </div>
-                <div className="spinner-border text-success" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                </div>
-                <div className="spinner-border text-warning" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                </div>
-            </div>
-        );
-    };
-
     return (
         <main>
             {reportInput.woreda ? (
@@ -364,89 +348,87 @@ function ReportWoreda() {
                             <h3>
                                 Woreda report: <b>{reportInput.woreda[1]}</b>
                             </h3>
-                            <button onClick={createPDF} disabled={ !load } type="button" className="btn btn-primary" > Export </button>
+                            <button onClick={createPDF} disabled={!load} type="button" className="btn btn-primary" > Export </button>
                         </div>
-                        {
+                        {!opt_forecast.length > 0 ? <Spinners /> :
                             <>
-                                {opt_forecast.length > 0 &&
-                                    <SelectFilters onChangeCrop={changeCrop} onChangeForecast={changeForecast} opt_forecast={opt_forecast} opt_crops={opt_crops} />
-                                }
-                                {!load ? (
-                                    <Spinners />
-                                ) : kebeles.length > 0 ? (
+                                <SelectFilters onChangeCrop={changeCrop} onChangeForecast={changeForecast} opt_forecast={opt_forecast} opt_crops={opt_crops} />
+                                {kebeles.length > 0 ?
                                     <div id="report">
                                         <div className="row my-3 g-8 row-cols-auto justify-content-between">
-                                            <Location id="location_report" />
-                                            {reportInput.ad_optimal &&
+                                            {!load ? <LoadingReport /> :
                                                 <>
-                                                    <BarChartYield
-                                                        name={"Optimal yield"}
-                                                        data={[barChartData[2]]}
-                                                    />
-                                                    <Location id="recommendation_report" />
+                                                    <Location id="location_report" />
+                                                    {reportInput.ad_optimal &&
+                                                        <>
+                                                            <BarChartYield
+                                                                name={"Optimal yield"}
+                                                                data={[barChartData[2]]}
+                                                            />
+                                                            <Location id="recommendation_report_woreda" />
+                                                        </>
+                                                    }
+                                                    {reportInput.ad_fertilizer &&
+                                                        <>
+                                                            <div className="alert alert-light my-3 border" role="alert">
+                                                                <p className="font-link-body text-justify">
+                                                                    Integrated Soil Fertility Management (ISFM) in this study address the integrated use of inorganic fertilizers with organic fertilizer such as verm-icompost, compost, manure, and bio-slurry with a set of locally adapted soil fertility technologies and improved agronomic practices promoted to enhance soil fertility, crop productivity and incomes of smallholder farmers. For this purpose, we developed site-specific recommendations integrated use of organic fertilizer with inorganic fertilizer for profitable wheat production in Ethiopia.
+                                                                </p>
+                                                                <p className="font-link-body text-justify">
+                                                                    Urea is the most concentrated solid nitrogen fertilizer which contain 46% nitrogen and no other plant nutrients. It is the most common fertilizer used as a source of nitrogen in Ethiopia. When it is worked into the soil, it is as effective as any other nitrogen fertilizer and is most efficiently utilized on soils with adequate moisture content, so that the gaseous ammonia can go quickly into solution. In the soil, urea changes to ammonium carbonate which may temporarily cause a harmful local high pH and its use need smart management practices such as split application to allow efficient uptake by plant.
+                                                                </p>
+                                                                <p className="font-link-body text-justify">
+                                                                    NPS blend fertilizer is a mix of single fertilizers which are mixed during the production process into an instant fertilizer recipe, packaged in a big bag. The composition of the mix is homogeneous throughout the entire big bag. This prevents the nutrients from coagulating and turning into hard layers, enabling easy application of the product into the crop field. Different types of blended fertilizers are available in Ethiopia. The NPS blend fertilizer used for crop production in Ethiopia contain nitrogen (19%), phosphorus (38%) and sulphur (7%).
+                                                                </p>
+                                                            </div>
+                                                            <BarChartFert
+                                                                name={"Fertilizer rate"}
+                                                                data={[barChartData[1], barChartData[3]]}
+                                                                tooltip={<p>Urea: compound fertilizer and source of nitrogen <br />
+                                                                    NPS: blended fertilizer and source of nitrogen, phosphorus, and sulphur</p>
+                                                                }
+                                                            />
+                                                            <Location id="nps_urea_report_woreda" />
+                                                            <BarChartFert
+                                                                name={"Fertilizer rate (ISFM)"}
+                                                                data={[barChartData[0], barChartData[4]]}
+                                                                tooltip={<p>ISFM: integrated soil fertility management<br /><br /></p>}
+                                                            />
+                                                            <Location id="compost_report_woreda" />
+                                                        </>
+                                                    }
+                                                    {
+                                                        reportInput.ad_risk && chart &&
+                                                        <div
+                                                            className="card col-12 col-md-5 my-1"
+                                                            key="bar_chart_risk"
+                                                            style={{ minWidth: "49%" }}
+                                                        >
+                                                            <div className="card-body">
+                                                                <h5 className="card-title">Risk</h5>
+                                                                <Chart options={chart.options} series={chart.series} type="bar" height={300} />
+                                                            </div>
+                                                        </div>
+                                                    }
                                                 </>
-                                            }
-                                            {reportInput.ad_fertilizer &&
-                                                <>
-                                                    <div className="alert alert-light my-3 border" role="alert">
-                                                        <p className="font-link-body text-justify">
-                                                            Integrated Soil Fertility Management (ISFM) in this study address the integrated use of inorganic fertilizers with organic fertilizer such as verm-icompost, compost, manure, and bio-slurry with a set of locally adapted soil fertility technologies and improved agronomic practices promoted to enhance soil fertility, crop productivity and incomes of smallholder farmers. For this purpose, we developed site-specific recommendations integrated use of organic fertilizer with inorganic fertilizer for profitable wheat production in Ethiopia.
-                                                        </p>
-                                                        <p className="font-link-body text-justify">
-                                                            Urea is the most concentrated solid nitrogen fertilizer which contain 46% nitrogen and no other plant nutrients. It is the most common fertilizer used as a source of nitrogen in Ethiopia. When it is worked into the soil, it is as effective as any other nitrogen fertilizer and is most efficiently utilized on soils with adequate moisture content, so that the gaseous ammonia can go quickly into solution. In the soil, urea changes to ammonium carbonate which may temporarily cause a harmful local high pH and its use need smart management practices such as split application to allow efficient uptake by plant.
-                                                        </p>
-                                                        <p className="font-link-body text-justify">
-                                                            NPS blend fertilizer is a mix of single fertilizers which are mixed during the production process into an instant fertilizer recipe, packaged in a big bag. The composition of the mix is homogeneous throughout the entire big bag. This prevents the nutrients from coagulating and turning into hard layers, enabling easy application of the product into the crop field. Different types of blended fertilizers are available in Ethiopia. The NPS blend fertilizer used for crop production in Ethiopia contain nitrogen (19%), phosphorus (38%) and sulphur (7%).
-                                                        </p>
-                                                    </div>
-                                                    <BarChartFert
-                                                        name={"Fertilizer rate"}
-                                                        data={[barChartData[1], barChartData[3]]}
-                                                        tooltip={<p>Urea: compound fertilizer and source of nitrogen <br />
-                                                            NPS: blended fertilizer and source of nitrogen, phosphorus, and sulphur</p>
-                                                        }
-                                                    />
-                                                    <Location id="nps_urea_report" />
-                                                    <BarChartFert
-                                                        name={"Fertilizer rate (ISFM)"}
-                                                        data={[barChartData[0], barChartData[4]]}
-                                                        tooltip={<p>ISFM: integrated soil fertility management<br /><br /></p>}
-                                                    />
-                                                    <Location id="compost_report" />
-                                                </>
-                                            }
-                                            {
-                                                reportInput.ad_risk && chart &&
-                                                <div
-                                                    className="card col-12 col-md-5 my-1"
-                                                    key="bar_chart_risk"
-                                                    style={{ minWidth: "49%" }}
-                                                >
-                                                    <div className="card-body">
-                                                        <h5 className="card-title">Risk</h5>
-                                                        <Chart options={chart.options} series={chart.series} type="bar" height={300} />
-                                                    </div>
-                                                </div>
 
                                             }
-
                                         </div>
                                         {reportInput.ad_fertilizer && <div className="alert alert-light my-3 border" role="alert">
                                             <h5>Notes: </h5>
                                             <ol>
-                                                <li>This advisory is for agricultural land allotted to wheat in 2022 main crop season only.</li>
+                                                <li>{`This advisory is for agricultural land allotted to wheat in ${forecast.split('-')[0]} main crop season only.`}</li>
                                                 <li>If there is no sufficient inorganic fertilizer supply, use half inorganic with half organic rates.</li>
                                             </ol>
                                         </div>}
                                     </div>
-                                ) : (
-                                    <div
+                                    : <div
                                         className="alert alert-warning mt-4 text-center"
                                         role="alert"
                                     >
                                         The selected Woreda has no kebeles regristred
                                     </div>
-                                )}
+                                }
                             </>
                         }
                     </section>

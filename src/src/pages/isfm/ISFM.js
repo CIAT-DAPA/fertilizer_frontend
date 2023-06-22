@@ -48,8 +48,10 @@ function ISFM() {
 
      // change scenario dominant
      React.useEffect(() => {
-        if ( filters.forecast !== "2022-07") {
-          setOptScenarios( [...opt_scenarios, { label: "Dominant", value: "dominant" }] )
+        if ( filters.forecast && filters.forecast !== "2022-07" ) {
+            if ( !opt_scenarios.includes({ label: "Dominant", value: "dominant" }) ) {
+                setOptScenarios( [...opt_scenarios, { label: "Dominant", value: "dominant" } ] )
+            }
         } else {
           setOptScenarios( opt_scenarios.filter(filter => filter.value !== "dominant"))
         }
@@ -62,7 +64,7 @@ function ISFM() {
             axios.get(Configuration.get_url_api_base() + `forecast/${cropFound.id}`)
             .then(response => {
                 const date = response.data.map(forecast => ({ label: forecast.date, value: forecast.date }))
-                setFilters({ ...filters, forecast: date[0].value })
+                setFilters({ ...filters, forecast: date.at(-1).value })
                 setOptForecast(date);
             }); 
         }
