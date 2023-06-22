@@ -521,7 +521,7 @@ function Map(props) {
                 }
                 {
                     props.legend &&
-                        <MapLegend currentLayer={currentLayer} geoserverLayers={geoserverLayers}/>
+                        <MapLegend currentLayer={currentLayer} geoserverLayers={geoserverLayers} crop={props.crop} scenario={props.scenario}/>
                 }
                 <Markers />
                 <ScaleControl position="bottomleft" />
