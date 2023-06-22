@@ -38,7 +38,7 @@ function Sidebar(props) {
                                 <Select id="cboForecast"
                                     options={props.opt_forecast}
                                     isSearchable={false}
-                                    defaultValue={props.opt_forecast[0]}
+                                    defaultValue={props.opt_forecast.at(-1)}
                                     onChange={handleChangeForecast}
                                     placeholder={"Select"} />
                                 <div className="d-flex justify-content-between">

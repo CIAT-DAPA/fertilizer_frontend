@@ -24,11 +24,11 @@ function SelectFilters(props) {
             <div className='d-flex justify-content-end font-link-body flex-wrap align-items-center'>
                 <h5 className='p-2 bd-highlight mt-2'>Forecast date</h5>
                 <div className='p-2 bd-highlight select'>
-                    <Select defaultValue={props.opt_forecast[0]}
+                    <Select defaultValue={props.opt_forecast.at(-1)}
                         options={props.opt_forecast}
                         onChange={props.onChangeForecast}
                         menuPortalTarget={document.body} 
-                        styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
+                        styles={{ menuPortal: base => ({ ...base, zIndex: 1999 }) }}
                     />
                 </div>
             </div>

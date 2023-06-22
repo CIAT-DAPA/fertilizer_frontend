@@ -11,15 +11,7 @@ function Methodology() {
             <h2 className="text-center font-link">Methodology</h2>
             <h4 className="font-link">Overview</h4>
             <p className="font-link-body text-justify">
-              NextGen Agroadvisory is a tool developed to provide location,
-              context, and climate specific agricultural advisories particularly
-              related to optimal fertilizer application, integrated soil fertility
-              management (ISFM), climate information service, climate smart
-              agricultural activities (CSA), pest and disease surveillance, and
-              other agricultural investments to different user groups. The app
-              provides both pixel level information and generates reports based on
-              kebele and woreda levels. The data used in the web app is produced
-              based on different methodologies:
+              The NextGen is a location-specific, tailored (suited to different farming systems and household typologies, and season-smart (aligned to an upcoming growing season) agroadvisory decision support tool (DST) designed to facilitate informed decision-making by different stakeholders. The advisory has been developed by integrating over 25,000 crop responses to fertilizer datasets with spatial co-variants using machine learning algorithms. The advisory and the partnership model between Excellence in Agronomy Initiative (EiA) under the leadership of the Alliance, GIZ-Ethiopia, Digital Green, and national institutes has attracted significant interest and preparations to scale are currently underway. The dataset, database management, and content (advisory) creation are supported and informed by the coalition of the wiling – teams of experts who came together to share data and/or facilitate the process. GIZ-Ethiopia and the Excellence in Agronomy (EiA) CGIAR Initiative are supporting the project.
             </p>
             <h4 className="font-link ps-3"> 1. Fertilizer</h4>
             <p className="font-link-body text-justify">
