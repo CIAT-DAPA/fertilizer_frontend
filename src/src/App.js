@@ -23,6 +23,7 @@ import ReportWoreda from './pages/report_woreda/ReportWoreda';
 import WheatRust from './pages/wheat_rust/WheatRust';
 import Lime from './pages/lime/Lime';
 import Methodology from './pages/methodology/Methodology';
+import CountrySelection from './pages/country_selection/CountrySelection';
 
 import store from './redux/store/store';
 
@@ -35,7 +36,8 @@ class App extends Component {
           <div className="container-fluid">
             <Menu />
             <Routes>
-              <Route exact path='/' element={<Home />} />
+              <Route exact path='/' element={<CountrySelection />} />
+              <Route path='/country_selected' element={<Home />} />
               <Route path='/fertilizer_advisories' element={<Fertilization />} />
               <Route path='/fertilizer_advisories_nps_urea' element={<FertilizationUreaNPS />} />
               <Route path='/isfm' element={<ISFM />} />

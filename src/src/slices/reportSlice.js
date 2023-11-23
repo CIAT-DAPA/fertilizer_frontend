@@ -3,6 +3,7 @@ import { createSlice } from'@reduxjs/toolkit';
 export const reportSlice = createSlice({
     name: 'report',
     initialState: {
+      country: null,
       type: null,
       region: null,
       zone: null,
@@ -18,14 +19,14 @@ export const reportSlice = createSlice({
        // Reducer y acciones asociadas.
        setReportInput: (state, action) => {
 
-        const { type, region, zone, woreda, kebele, ad_fertilizer, ad_aclimate, ad_risk, ad_optimal } = action.payload.formValues;
+        const { country, type, region, zone, woreda, kebele, ad_fertilizer, ad_aclimate, ad_risk, ad_optimal } = action.payload.formValues;
        
         // state = {
         //   ...action.payload.formValues
         // }
       
 
-        Object.assign(state, { type, region, zone, woreda, kebele, ad_fertilizer, ad_aclimate, ad_risk, ad_optimal });
+        Object.assign(state, { country, type, region, zone, woreda, kebele, ad_fertilizer, ad_aclimate, ad_risk, ad_optimal });
         return state;
 
        }

@@ -33,6 +33,17 @@
     height:380px;
     margin: auto;
   }
+
+  .back-button{
+    text-decoration: none;
+    color:rgb(0, 0, 0);
+    transition: all 0.05s ease-in;
+  }
+
+  .back-button:hover{
+    text-decoration: underline;
+    color:rgb(108, 4, 192);
+  }
   
   /* MARKETING CONTENT
   -------------------------------------------------- */
