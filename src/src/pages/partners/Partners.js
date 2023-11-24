@@ -1,18 +1,17 @@
-import CountryPartner from '../../components/countryPartner/CountryPartner';
-import './Partners.css'
+import CountryPartner from '../../components/country_partner/CountryPartner';
+//import './Partners.css'
 import React, { useState, useEffect } from "react";
 import Papa from "papaparse";
-import { useTranslation } from "react-i18next"
 import Footer from "../../components/footer/Footer";
 
 const URL_PARTNERS_DATA =
-    "https://raw.githubusercontent.com/CIAT-DAPA/aclimate_site/main/data/partners.csv";
+    "https://raw.githubusercontent.com/CIAT-DAPA/fertilizer_frontend/develop/src/src/assets/partners/partners.csv";
 
 function Partners() {
     //Translation
     //const [t, i18n] = useTranslation("global");
-
     const [groupedPartners, setGroupedPartners] = useState({});
+
 
     useEffect(() => {
         Papa.parse(URL_PARTNERS_DATA, {
@@ -20,6 +19,7 @@ function Partners() {
             header: true,
             dynamicTyping: true,
             complete: (results) => {
+                console.log(results)
 
                 const grouped = results.data.reduce((acc, partner) => {
                     const country = partner.Pais;
@@ -30,6 +30,7 @@ function Partners() {
                     return acc;
                 }, {});
                 setGroupedPartners(grouped);
+                console.log(grouped);
             },
         });
     }, []);
@@ -40,13 +41,13 @@ function Partners() {
                 <div className="container pb-3 px-4 container-news" style={{}}>
                     <div className="col-md-6 px-0">
                         <h1 className="display-4">
-                            {t("partners.partners-title")}
+                            Partners
                         </h1>
                     </div>
                 </div>
             </div>
             <div className='px-5'>
-                {['Colombia', 'Ethiopia', 'Angola', 'Guatemala', 'Perú']
+                {['Ethiopia']
                     .map((country) => {
                         if (!groupedPartners[country]) {
                             return null;
@@ -54,7 +55,6 @@ function Partners() {
                         return <CountryPartner key={country} country={country} partners={groupedPartners[country]} />
                     })}
             </div>
-            <Footer></Footer>
         </div >
     );
 }

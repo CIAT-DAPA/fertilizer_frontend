@@ -87,6 +87,9 @@ function Menu() {
                             <li className="navbar-item">
                                 <Link className="nav-link" to="/about">About us</Link>
                             </li>
+                            <li className="navbar-item">
+                                <Link className="nav-link" to="/partners">Partners</Link>
+                            </li>
                         </ul>
 
 
