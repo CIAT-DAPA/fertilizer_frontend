@@ -30,29 +30,16 @@ pipeline {
             steps {
                 script {
                     sshCommand remote: remote, command: """
-                        cd /var/www/docs/
-                        pm2 delete agroadvisory
                         cd /var/www/docs/front_back/
                         rm -fr front_backup_\$(date +"%Y%m%d")
-                        mv /var/www/docs/agroadvisory/ front_backup_\$(date +"%Y%m%d")
+                        mkdir front_backup_\$(date +"%Y%m%d")
+                        cp -r /var/www/docs/agroadvisory/* front_backup_\$(date +"%Y%m%d")
                         rm -fr releaseFront.zip
                         curl -LOk https://github.com/CIAT-DAPA/fertilizer_frontend/releases/latest/download/releaseFront.zip
                         unzip -o releaseFront.zip
                         rm -fr releaseFront.zip
-                        mkdir agroadvisory
-                        mv src/build/* agroadvisory
+                        cp -r src/build/* /var/www/docs/agroadvisory/
                         rm -fr src
-                        mv agroadvisory/ /var/www/docs/
-                    """
-                }
-            }
-        }
-        stage('Init Front End') {
-            steps {
-                script {
-                    sshCommand remote: remote, command: """
-                        cd /var/www/docs/
-                        pm2 serve agroadvisory 3000 --name agroadvisory --spa
                     """
                 }
             }
