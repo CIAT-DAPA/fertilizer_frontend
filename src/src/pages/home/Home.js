@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from "axios";
 import center from "@turf/center";
 import { Link } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom';
 
 import './Home.css';
 import Map from '../../components/map/Map';
@@ -26,7 +27,8 @@ function Home() {
     const [param, setParam] = useState();
 
     const reportInput = useSelector((state) => state.report);
-
+    const navigate = useNavigate();
+    const { country, id } = useParams();
 
     const [formValues, setFormValues] = useState({
         country: reportInput.country,
@@ -47,7 +49,7 @@ function Home() {
     //initial load of the regions
     useEffect(() => {
         setloading({ ...loading, r: "loading" })
-        axios.get(Configuration.get_url_api_base() + "adm1"+"/"+reportInput.country[1])
+        axios.get(Configuration.get_url_api_base() + "adm1" + "/" + id)
             .then(response => {
                 setSelectsValues({ ...selectsValues, regions: response.data })
                 setloading({ ...loading, r: "pending" })
@@ -203,7 +205,7 @@ function Home() {
                     <div className='col'>
                         <div>
                             <span className="icon">
-                            &#x1F870;
+                                &#x1F870;
                             </span>
 
                             <Link to="/" className='ms-2 back-button font-link-body'>
@@ -212,7 +214,7 @@ function Home() {
 
                         </div>
 
-                        <h1 className='font-link text-center'><b>NextGen Agroadvisory - {reportInput.country[0]}</b></h1>
+                        <h1 className='font-link text-center'><b>NextGen Agroadvisory - {country}</b></h1>
                         <p className='font-link-body'>
                             NextGenAgroadvisory is a project designed to develop location-, context-, and climate- specific agricultural
                             advisories particularly related to optimal fertilizer application, integrated soil fertility management (ISFM),
