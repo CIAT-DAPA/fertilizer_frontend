@@ -19,8 +19,6 @@ function Partners() {
             header: true,
             dynamicTyping: true,
             complete: (results) => {
-                console.log(results)
-
                 const grouped = results.data.reduce((acc, partner) => {
                     const country = partner.Pais;
                     if (!acc[country]) {
@@ -30,7 +28,7 @@ function Partners() {
                     return acc;
                 }, {});
                 setGroupedPartners(grouped);
-                console.log(grouped);
+
             },
         });
     }, []);

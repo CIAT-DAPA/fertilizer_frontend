@@ -25,7 +25,12 @@ function Partner(props) {
     return (
 
         <a href={props.partner.Link} target="_blank" rel='noreferrer' className='partner hidden-partner' ref={hiddenElement}>
-            <img className="img-partner " src={`${process.env.PUBLIC_URL}/images/${props.partner.Logo}`} alt={props.partner.Socio} />
+            <img
+                className="img-partner"
+                src={`/logos/${props.partner.Logo}`}
+                alt={props.partner.Socio}
+            />
+
         </a>
 
     )
