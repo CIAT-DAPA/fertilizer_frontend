@@ -16,10 +16,11 @@ function Footer() {
 
         <div className="card text-center">
             <div className="card-header">
-                Partners
+            <p>Develop by <a href="https://ciat.cgiar.org/" target="_blank" className="">Alliance Bioversity International - CIAT</a>, 
+                        under SSHI and EiA.</p>
             </div>
 
-            <div className="card-body">
+            {/* <div className="card-body">
 
                 <div className="d-flex justify-content-center">
                     <div className="row">
@@ -55,16 +56,17 @@ function Footer() {
                         <div className="col">
                             <img className="figure-img rounded" alt="" src={cowLogo} width="175" height="75" role="img" />
                         </div>
+                    
 
                     </div>
                 </div>
-            </div>
+            </div> */}
 
             
-            <div className="card-footer text-muted">
+            {/* <div className="card-footer text-muted">
                     <p>Develop by <a href="https://ciat.cgiar.org/" target="_blank" className="">Alliance Bioversity International - CIAT</a>, 
                         under SSHI and EiA.</p>
-            </div>
+            </div> */}
 
             
         </div>
