@@ -70,7 +70,7 @@ const CountrySelection = () => {
     dispatch(setReportInput({ formValues }));
 
     if (selectedOption) {
-      navigate("/country_selected/");
+      navigate("/country_selected/"+selectedOption.label+"/"+selectedOption.id);
     }
   };
 
