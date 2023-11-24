@@ -38,7 +38,7 @@ class App extends Component {
             <Menu />
             <Routes>
               <Route exact path='/' element={<CountrySelection />} />
-              <Route path='/country_selected' element={<Home />} />
+              <Route path='/country_selected/:country/:id' element={<Home />} />
               <Route path='/fertilizer_advisories' element={<Fertilization />} />
               <Route path='/fertilizer_advisories_nps_urea' element={<FertilizationUreaNPS />} />
               <Route path='/isfm' element={<ISFM />} />
