@@ -4,8 +4,8 @@ const GEOSERVER_FEATURE = "oms";
 
 const FERTILIZER_WORSPACE = "fertilizer_et"
 const ACLIMATE_WORSPACE = "aclimate_et"
-const NEXTGEN_API_BASE = "http://localhost:5000/"
-//const NEXTGEN_API_BASE = "https://webapi.nextgenagroadvisory.com/"
+//const NEXTGEN_API_BASE = "http://localhost:5000/"
+const NEXTGEN_API_BASE = "https://webapi.nextgenagroadvisory.com/"
 const ACLIMATE_API_BASE = "https://webapi.aclimate.org/api/"
 const CROP_RASTER_URL = NEXTGEN_API_BASE+"clip_raster";
 
