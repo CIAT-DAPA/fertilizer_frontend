@@ -12,7 +12,7 @@ function Menu() {
     React.useEffect(() => {
         //Regions
         if (reportInput?.kebele) {
-            setReportButtonDisabled("false");
+            setReportButtonDisabled(false);
         }
     }, [reportInput]);
 
@@ -20,7 +20,7 @@ function Menu() {
         <header>
             <nav className="navbar navbar-expand-md navbar-dark fixed-top bg-dark" style={{ zIndex: '2000' }}>
                 <div className="container-fluid">
-                    <img src={logo_nextgen} width='40px' className='me-2'/>
+                    <img src={logo_nextgen} width='40px' className='me-2' />
                     <Link className="navbar-brand" to="/">NextGen Agroadvisory</Link>
                     <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
                         <span className="navbar-toggler-icon"></span>
@@ -42,34 +42,45 @@ function Menu() {
                                         </li>
 
                             }
-                            <li className="nav-item dropdown">
-                                <a className="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                    Advisory Components
-                                </a>
-                                <div className="dropdown-menu" aria-labelledby="navbarDropdown">
-                                    <a className="dropdown-item dropdown-toggle" href="#" id="navbar2Dropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                        Fertilizer
+                            {reportInput?.country ?
+                                <li className="nav-item dropdown">
+                                    <a className="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                        Advisory Components
                                     </a>
-                                    <div className="dropdown-menu" aria-labelledby="navbar2Dropdown">
-                                        <Link className="dropdown-item" to="/fertilizer_advisories">N, P & Optimal yield</Link>
-                                        <Link className="dropdown-item" to="/fertilizer_advisories_nps_urea">NPS & Urea</Link>
-                                    </div>
+                                    <div className="dropdown-menu" aria-labelledby="navbarDropdown">
+                                        <a className="dropdown-item dropdown-toggle" href="#" id="navbar2Dropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                            Fertilizer
+                                        </a>
+                                        <div className="dropdown-menu" aria-labelledby="navbar2Dropdown">
+                                            <Link className="dropdown-item" to="/fertilizer_advisories">N, P & Optimal yield</Link>
+                                            <Link className="dropdown-item" to="/fertilizer_advisories_nps_urea">NPS & Urea</Link>
+                                        </div>
 
-                                    <Link className="dropdown-item" to="/isfm">ISFM</Link>
-                                    <Link className="dropdown-item" to="/csa">CSA</Link>
-                                    <Link className="dropdown-item" to="/irrigation">Irrigation</Link>
-                                    <Link className="dropdown-item" to="/lime">Lime</Link>
-                                    <Link className="dropdown-item" to="/agroclimate">Agroclimate</Link>
-                                    <Link className="dropdown-item" to="/wheat_rust">Wheat rust</Link>
-                                    {/* <Link className="dropdown-item" to="/pest_disease">Pest and disease surveillance</Link>
-                                    <Link className="dropdown-item" to="/mechanization">Mechanization</Link>
-                                    <Link className="dropdown-item" to="/bundled_aas">Bundled AAS</Link> */}
-                                </div>
-                            </li>
+                                        <Link className="dropdown-item" to="/isfm">ISFM</Link>
+                                        <Link className="dropdown-item" to="/csa">CSA</Link>
+                                        <Link className="dropdown-item" to="/irrigation">Irrigation</Link>
+                                        <Link className="dropdown-item" to="/lime">Lime</Link>
+                                        <Link className="dropdown-item" to="/agroclimate">Agroclimate</Link>
+                                        <Link className="dropdown-item" to="/wheat_rust">Wheat rust</Link>
+                                        {/* <Link className="dropdown-item" to="/pest_disease">Pest and disease surveillance</Link>
+                                <Link className="dropdown-item" to="/mechanization">Mechanization</Link>
+                                <Link className="dropdown-item" to="/bundled_aas">Bundled AAS</Link> */}
+                                    </div>
+                                </li>
+                                :
+                                <li className="nav-item dropdown">
+                                    <a className="nav-link disabled dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                        Advisory Components
+                                    </a>
+                                    
+                                </li>
+
+                            }
+
                             {/* <li className="nav-item">
                                 <Link className="nav-link" to="/bundled_aas">Bundled AAS</Link>
                             </li> */}
-                            
+
 
                             <li className="navbar-item dropdown">
                                 <a className="nav-link dropdown-toggle" href="#" id="navbar_api" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -79,7 +90,7 @@ function Menu() {
                                     <a className="dropdown-item" href="https://webapi.nextgenagroadvisory.com/" target="_blank">API NextGen</a>
                                     <a className="dropdown-item" href="https://webapi.aclimate.org/" target="_blank">API Aclimate</a>
                                 </div>
-                                
+
                             </li>
                             <li className="navbar-item">
                                 <Link className="nav-link" to="/methodology">Methodology</Link>
