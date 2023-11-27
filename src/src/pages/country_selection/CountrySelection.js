@@ -93,9 +93,11 @@ const CountrySelection = () => {
         outline: 'none',
       }, hover: {
         fill: hoveredCountry && hoveredCountry.label === geography.properties.name ? '#009975' : "#EEE",
+        outline: 'none',
       },
       pressed: {
         fill: "#EEE",
+        outline: 'none',
       }
     };
   };
@@ -121,7 +123,6 @@ const CountrySelection = () => {
                 key={geo.rsmKey}
                 geography={geo}
                 style={highlightCountry(geo)}
-
                 onMouseEnter={() => handleMouseEnter(geo)}
                 onMouseLeave={() => handleMouseLeave()}
               />
