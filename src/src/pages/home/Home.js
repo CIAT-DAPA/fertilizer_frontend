@@ -353,7 +353,7 @@ function Home() {
                                 && <Alert />
                             }
                             <Link className='col d-flex justify-content-center mt-4 mb-4' to={forWoreda ? "/report_woreda" : "/report"} style={verify() ? { "pointerEvents": 'none' } : {}} >
-                                <button type="submit" className="btn btn-primary" disabled={verify()} onClick={e => { dispatch(setReportInput({ formValues })); }}>Advisory</button>
+                                <button type="submit" className="btn btn-primary" disabled={verify()} onClick={e => { formValues.country=[country, id]; dispatch(setReportInput({ formValues })); }}>Advisory</button>
                             </Link>
                         </div>
                     </form>
