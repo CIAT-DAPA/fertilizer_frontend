@@ -3,6 +3,6 @@ import App from './App';
 
 test('renders learn react link', () => {
   render(<App />);
-  const linkElement = screen.getByText(/NPS & Urea/i);
+  const linkElement = screen.getByText(/Select a country/i);
   expect(linkElement).toBeInTheDocument();
 });
