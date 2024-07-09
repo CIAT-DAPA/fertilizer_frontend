@@ -28,7 +28,6 @@ function Report() {
     const [opt_crops, setOptCrops] = React.useState([]);
     const [opt_scenarios, setOptScenarios] = React.useState(["normal", "above", "below"]);
     const [crop, setCrop] = React.useState();
-    const [scenario, setScenario] = React.useState(opt_scenarios[0].value);
     const [geoJson, setGeoJson] = React.useState();
     const [barChartData, setBarChartData] = React.useState();
     const [risk, setRisk] = React.useState();
@@ -65,7 +64,6 @@ function Report() {
                 if (reportInput.kebele[3]) {
                     await axios.get(Configuration.get_url_aclimate_api_base() + "Forecast/Climate/" + reportInput.kebele[3] + "/false/json")
                         .then(response => {
-                            console.log(response)
                             if (response.data?.climate[0]?.data)
                                 setSeasonal(response.data?.climate[0])
                         }
@@ -76,7 +74,7 @@ function Report() {
         }
         fetchData()
 
-    }, [forecast]);
+    }, [forecast, opt_forecast]);
 
     // load of date forecast by crop
     React.useEffect(() => {
@@ -125,7 +123,6 @@ function Report() {
     const createPDF = async () => {
 
         let html = document.querySelector('#report')
-        console.log(html.offsetWidth, html.offsetHeight)
         let report = new JsPDF('p', 'px', [html.offsetHeight + 50, html.offsetWidth + 50]);
         const canvas = await html2canvas(html, {
             useCORS: true,
@@ -161,7 +158,7 @@ function Report() {
         }
 
         return (
-            <div className="card col-12 col-lg-5 my-2" style={{ minWidth: ((!reportInput.ad_aclimate || !seasonal) && id === "location_report") ? "100%" : "49%", maxHeight: "445.33px" }}>
+            <div className="card col-12 col-lg-5 my-2" style={{ minWidth: ((!reportInput.ad_aclimate || !seasonal) && id === "location_report") ? "100%" : "49%" }}>
                 <div className="card-body">
                     <h5 className="card-title">{name}</h5>
                     {geoJson && (
@@ -218,39 +215,18 @@ function Report() {
         )
     }
 
-    const BarChartFert = ({ name, data, tooltip }) => {
+    const BarChart = ({ name, data, tooltip = null }) => {
         return (
             <div
-                className="card col-12 col-md-5 my-2"
-                key={"bar_chart_" + name}
-                style={{ minWidth: "49%" }}>
-                <div className="card-body">
-                    <h5 className="card-title">{name}
-                    </h5>
-                    {tooltip}
-                    <ColumnChart data={data} type={'fertilizer_rate'} />
-
-                </div>
-
-            </div>
-
-        )
-    }
-
-    const BarChartYield = ({ name, data }) => {
-        return (
-            <div
-                className="card col-12 col-md-5 my-2"
+                className="card col-12 col-lg-5 my-2"
                 key={"bar_chart_" + name}
                 style={{ minWidth: "49%" }}>
                 <div className="card-body">
                     <h5 className="card-title">{name}</h5>
-                    <ColumnChart data={data} type={'optimal_yield'} />
-
+                    {tooltip && tooltip}
+                    <ColumnChart data={data} type={name} />
                 </div>
-
             </div>
-
         )
     }
 
@@ -287,19 +263,19 @@ function Report() {
                                                                     NPS blend fertilizer is a mix of single fertilizers which are mixed during the production process into an instant fertilizer recipe, packaged in a big bag. The composition of the mix is homogeneous throughout the entire big bag. This prevents the nutrients from coagulating and turning into hard layers, enabling easy application of the product into the crop field. Different types of blended fertilizers are available in Ethiopia. The NPS blend fertilizer used for crop production in Ethiopia contain nitrogen (19%), phosphorus (38%) and sulphur (7%).
                                                                 </p>
                                                             </div>
-                                                                <BarChartFert name={"Fertilizer rate"} data={[barChartData[1], barChartData[3]]}
+                                                                <BarChart name={"Fertilizer rate"} data={barChartData}
                                                                     tooltip={<p>Urea: compound fertilizer and source of nitrogen <br />
                                                                         NPS: blended fertilizer and source of nitrogen, phosphorus, and sulphur</p>
                                                                     } />
                                                                 <Location id="nps_urea_report" />
-                                                                <BarChartFert name={"Fertilizer rate (ISFM)"} data={[barChartData[0], barChartData[4]]}
+                                                                <BarChart name={"Fertilizer rate (ISFM)"} data={barChartData}
                                                                     tooltip={<p>ISFM: integrated soil fertility management<br /><br /></p>} />
                                                                 <Location id="compost_report" />
                                                         </>
                                                     }
                                                     {reportInput.ad_optimal &&
                                                         <>
-                                                            <BarChartYield name={"Optimal yield"} data={[barChartData[2]]} />
+                                                            <BarChart name={"Optimal yield"} data={barChartData} />
                                                             <Location id="recommendation_report" />
                                                         </>
                                                     }
