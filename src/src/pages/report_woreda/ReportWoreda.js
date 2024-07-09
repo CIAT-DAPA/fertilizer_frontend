@@ -54,53 +54,7 @@ function ReportWoreda() {
             const forecastFound = forecasts.find(prop => prop.date === forecast)
             let kebeles;
             let ids = "";
-            const suma = [
-                {
-                    type: "63865d9f68c981103580abf0",
-                    values: [
-                        { s: 1, values: [0] },
-                        [{ s: 2, values: [0] }],
-                        [{ s: 3, values: [0] }],
-                        [{ s: 4, values: [0] }],
-                    ],
-                },
-                {
-                    type: "63865ef468c981103580e666",
-                    values: [
-                        { s: 1, values: [0] },
-                        [{ s: 2, values: [0] }],
-                        [{ s: 3, values: [0] }],
-                        [{ s: 4, values: [0] }],
-                    ],
-                },
-                {
-                    type: "638660ad68c98110358120dc",
-                    values: [
-                        { s: 1, values: [0] },
-                        [{ s: 2, values: [0] }],
-                        [{ s: 3, values: [0] }],
-                        [{ s: 4, values: [0] }],
-                    ],
-                },
-                {
-                    type: "638662c668c9811035815b52",
-                    values: [
-                        { s: 1, values: [0] },
-                        [{ s: 2, values: [0] }],
-                        [{ s: 3, values: [0] }],
-                        [{ s: 4, values: [0] }],
-                    ],
-                },
-                {
-                    type: "6386653e68c98110358195c8",
-                    values: [
-                        { s: 1, values: [0] },
-                        [{ s: 2, values: [0] }],
-                        [{ s: 3, values: [0] }],
-                        [{ s: 4, values: [0] }],
-                    ],
-                },
-            ];
+            let sum = []
             const risks = {};
             axios
                 .get(Configuration.get_url_api_base() + "adm4/" + reportInput.woreda[0])
@@ -119,16 +73,31 @@ function ReportWoreda() {
                             .then((response) => {
                                 const dataFind = response.data.filter(data => data.forecast === forecastFound.id)
                                 dataFind.map((kebele) => {
-                                    const aux = suma.filter(ar => ar.type === kebele.type);
-                                    aux[0].values[0].values[0] +=
-                                        kebele.values[0].values[0] / kebeles.length;
-                                    aux[0].values[1][0].values[0] +=
-                                        kebele.values[1][0].values[0] / kebeles.length;
-                                    aux[0].values[2][0].values[0] +=
-                                        kebele.values[2][0].values[0] / kebeles.length;
-                                    kebele.values[3] && aux[0].values[3] ?
-                                        (aux[0].values[3][0].values[0] += kebele.values[3][0].values[0] / kebeles.length)
-                                        : (aux[0].values.splice(3, 1))
+                                    let aux = sum.find(entry => entry.type === kebele.type);
+
+                                    if (!aux) {
+                                        // Si el tipo no existe en suma, inicializarlo
+                                        aux = {
+                                        type: kebele.type,
+                                        values: [
+                                            { s: 1, values: [0] },
+                                            [{ s: 2, values: [0] }],
+                                            [{ s: 3, values: [0] }],
+                                            kebele.values[3] ? [{ s: 4, values: [0] }] : undefined, 
+                                        ].filter(Boolean) // Filtrar para eliminar entradas undefined
+                                        };
+                                        sum.push(aux);
+                                    }
+
+                                    // Sumar los valores correspondientes
+                                    aux.values[0].values[0] += kebele.values[0].values[0] / kebeles.length;
+                                    aux.values[1][0].values[0] += kebele.values[1][0].values[0] / kebeles.length;
+                                    aux.values[2][0].values[0] += kebele.values[2][0].values[0] / kebeles.length;
+
+                                    if (kebele.values[3]) {
+                                        aux.values[3] = aux.values[3] || [{ s: 4, values: [0] }];
+                                        aux.values[3][0].values[0] += kebele.values[3][0].values[0] / kebeles.length;
+                                    }
                                 });
                             });
                         await axios
@@ -189,9 +158,9 @@ function ReportWoreda() {
                             });
                     } else setLoad(true);
                 });
-            setBarChartData(suma);
+            setBarChartData(sum);
         }
-    }, [forecast]);
+    }, [forecast, opt_forecast]);
 
     // Initial load, crops and geojson
     React.useEffect(() => {
@@ -245,7 +214,6 @@ function ReportWoreda() {
     // Generate the pdf based on a component
     const createPDF = async () => {
         let html = document.querySelector('#report')
-        console.log(html.offsetWidth, html.offsetHeight)
         let report = new JsPDF('p', 'px', [html.offsetHeight + 50, html.offsetWidth + 50]);
         const canvas = await html2canvas(html, {
             useCORS: true,
@@ -280,7 +248,7 @@ function ReportWoreda() {
         }
 
         return (
-            <div className="card col-12 col-lg-5 my-1" style={{ minWidth: id === "location_report" ? "100%" : "49%", maxHeight: "445.33px" }}>
+            <div className="card col-12 col-lg-5 my-2" style={{ minWidth: id === "location_report" ? "100%" : "49%" }}>
                 <div className="card-body">
                     <h5 className="card-title">{name}</h5>
                     {geoJson && (
@@ -307,36 +275,20 @@ function ReportWoreda() {
         );
     };
 
-    const BarChartFert = ({ name, data, tooltip }) => {
+    const BarChart = ({ name, data, tooltip = null }) => {
         return (
             <div
-                className="card col-12 col-md-5 my-1"
+                className="card col-12 col-lg-5 my-2"
                 key={"bar_chart_" + name}
-                style={{ minWidth: "49%" }}
-            >
+                style={{ minWidth: "49%" }}>
                 <div className="card-body">
                     <h5 className="card-title">{name}</h5>
-                    {tooltip}
-                    <ColumnChart data={data} type={"fertilizer_rate"} />
+                    {tooltip && tooltip}
+                    <ColumnChart data={data} type={name} />
                 </div>
             </div>
-        );
-    };
-
-    const BarChartYield = ({ name, data }) => {
-        return (
-            <div
-                className="card col-12 col-md-5 my-1"
-                key={"bar_chart_yield"}
-                style={{ minWidth: "49%" }}
-            >
-                <div className="card-body">
-                    <h5 className="card-title">{name}</h5>
-                    <ColumnChart data={data} type={"optimal_yield"} />
-                </div>
-            </div>
-        );
-    };
+        )
+    }
 
     return (
         <main>
@@ -361,9 +313,9 @@ function ReportWoreda() {
                                                     <Location id="location_report" />
                                                     {reportInput.ad_optimal &&
                                                         <>
-                                                            <BarChartYield
+                                                            <BarChart
                                                                 name={"Optimal yield"}
-                                                                data={[barChartData[2]]}
+                                                                data={barChartData}
                                                             />
                                                             <Location id="recommendation_report_woreda" />
                                                         </>
@@ -381,17 +333,17 @@ function ReportWoreda() {
                                                                     NPS blend fertilizer is a mix of single fertilizers which are mixed during the production process into an instant fertilizer recipe, packaged in a big bag. The composition of the mix is homogeneous throughout the entire big bag. This prevents the nutrients from coagulating and turning into hard layers, enabling easy application of the product into the crop field. Different types of blended fertilizers are available in Ethiopia. The NPS blend fertilizer used for crop production in Ethiopia contain nitrogen (19%), phosphorus (38%) and sulphur (7%).
                                                                 </p>
                                                             </div>
-                                                            <BarChartFert
+                                                            <BarChart
                                                                 name={"Fertilizer rate"}
-                                                                data={[barChartData[1], barChartData[3]]}
+                                                                data={barChartData}
                                                                 tooltip={<p>Urea: compound fertilizer and source of nitrogen <br />
                                                                     NPS: blended fertilizer and source of nitrogen, phosphorus, and sulphur</p>
                                                                 }
                                                             />
                                                             <Location id="nps_urea_report_woreda" />
-                                                            <BarChartFert
+                                                            <BarChart
                                                                 name={"Fertilizer rate (ISFM)"}
-                                                                data={[barChartData[0], barChartData[4]]}
+                                                                data={barChartData}
                                                                 tooltip={<p>ISFM: integrated soil fertility management<br /><br /></p>}
                                                             />
                                                             <Location id="compost_report_woreda" />

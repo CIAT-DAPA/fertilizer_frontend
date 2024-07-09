@@ -16,8 +16,20 @@ function ColumnChart({data, type}) {
   React.useEffect(() => {
     
       let aux = {metric_name: [], above:[], normal:[], below:[], dominant:[]}
-  
-      data.map(value => (
+
+      // Filtrar solo los datos que corresponden al tipo correcto según la prop 'type'
+      const filteredData = data.filter(value => {
+        if (type === 'Fertilizer rate') {
+          return value.type === '63865ef468c981103580e666' || value.type === '638662c668c9811035815b52';
+        } else if (type === 'Fertilizer rate (ISFM)') {
+          return value.type === '63865d9f68c981103580abf0' || value.type === '6386653e68c98110358195c8';
+        } else if (type === 'Optimal yield') {
+          return value.type === '638660ad68c98110358120dc'
+        }
+        return true; // Si el tipo no coincide con ninguno de los esperados se mantienen los datos igual
+      });
+
+      filteredData.map(value => (
         aux.metric_name.push(typeToTypeName.get(value.type)),
         aux.above.push(value.values[0].values[0].toFixed(2)),
         aux.normal.push(value.values[1][0].values[0].toFixed(2)),
@@ -38,9 +50,7 @@ function ColumnChart({data, type}) {
 
 let state;
 if(dataFormatted){
-  //console.log(dataFormatted);
-  
-  if(type === 'fertilizer_rate'){
+  if(type.includes("Fertilizer rate")){
     state = {
         series: [{
             name: 'Above normal',
@@ -96,15 +106,10 @@ if(dataFormatted){
               }
             }
           },
-        
-        
-        
         };
-
   }
   else{
-    state = {
-          
+    state = {        
       series: [{
         name:'optimal yield',
         data: dataOptimal
@@ -149,24 +154,16 @@ if(dataFormatted){
           }
         }
       },
-    
-    
     };
-
   }
-
 }
     return  (
       <div>
         {
           dataFormatted &&
-            <Chart options={state.options} series={state.series} type="bar" height={300}  />
+            <Chart options={state.options} series={state.series} type="bar" height={350}  />
         }
-
       </div>
-        
-        
-
     )
 }
 export default ColumnChart;
