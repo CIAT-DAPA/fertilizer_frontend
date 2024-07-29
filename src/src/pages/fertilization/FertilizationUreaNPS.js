@@ -28,10 +28,14 @@ function FertilizationUreaNPS() {
         setScenario(event.value);
     };
 
+    const containsScenario = (array, scenario) => {
+        return array.some(item => item.label === scenario.label && item.value === scenario.value);
+    }
+
      // change scenario dominant
      React.useEffect(() => {
         if ( forecast && forecast !== "2022-07" ) {
-            if ( !opt_scenarios.includes({ label: "Dominant", value: "dominant" }) ) {
+            if ( !containsScenario(opt_scenarios, { label: "Dominant", value: "dominant" }) ) {
                 setOptScenarios( [...opt_scenarios, { label: "Dominant", value: "dominant" } ] )
             }
         } else {
