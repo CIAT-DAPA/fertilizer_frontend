@@ -6,10 +6,10 @@ pipeline {
     agent any
 
     environment {
-        user = credentials('fertalizer_user')
-        host = credentials('fertalizer_host')
-        name = credentials('fertalizer_name')
-        ssh_key = credentials('fertalizer_devops')
+        user = credentials('agroadvisory_user')
+        host = credentials('agroadvisory_host')
+        //name = credentials('fertalizer_name')
+        //ssh_key = credentials('fertalizer_devops')
     }
 
     stages {
@@ -18,9 +18,9 @@ pipeline {
                 script {
                     // Set up remote SSH connection parameters
                     remote.allowAnyHosts = true
-                    remote.identityFile = ssh_key
+                    //remote.identityFile = ssh_key
                     remote.user = user
-                    remote.name = name
+                    //remote.name = name
                     remote.host = host
                     
                 }
@@ -30,15 +30,15 @@ pipeline {
             steps {
                 script {
                     sshCommand remote: remote, command: """
-                        cd /var/www/docs/front_back/
+                        cd /opt/nagroadvisory/front_back/
                         rm -fr front_backup_\$(date +"%Y%m%d")
                         mkdir front_backup_\$(date +"%Y%m%d")
-                        cp -r /var/www/docs/agroadvisory/* front_backup_\$(date +"%Y%m%d")
+                        cp -r /opt/nagroadvisory/front/* front_backup_\$(date +"%Y%m%d")
                         rm -fr releaseFront.zip
                         curl -LOk https://github.com/CIAT-DAPA/fertilizer_frontend/releases/latest/download/releaseFront.zip
                         unzip -o releaseFront.zip
                         rm -fr releaseFront.zip
-                        cp -r src/build/* /var/www/docs/agroadvisory/
+                        cp -r src/build/* /opt/nagroadvisory/front/
                         rm -fr src
                     """
                 }
