@@ -13,7 +13,7 @@ pipeline {
     }
 
     stages {
-        stage('Ssh to connect Tesla server') {
+        stage('Ssh to connect 192.168.199.121 server') {
             steps {
                 script {
                     // Set up remote SSH connection parameters
