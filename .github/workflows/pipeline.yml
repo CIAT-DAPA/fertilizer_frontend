@@ -75,7 +75,7 @@ jobs:
       run: zip releaseFront.zip ./src/build/* -r
     # Upload Artifacts
     - name: Upload Front artifact for deployment job
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: Frontend
         path: releaseFront.zip
