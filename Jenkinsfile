@@ -9,7 +9,7 @@ pipeline {
         user = credentials('agroadvisory_user')
         host = credentials('agroadvisory_host')
         name = credentials('agroadvisory_name')
-        //ssh_key = credentials('fertalizer_devops')
+        ssh_key = credentials('agroadvisory_key')
     }
 
     stages {
@@ -18,7 +18,7 @@ pipeline {
                 script {
                     // Set up remote SSH connection parameters
                     remote.allowAnyHosts = true
-                    //remote.identityFile = ssh_key
+                    remote.identityFile = ssh_key
                     remote.user = user
                     remote.name = name
                     remote.host = host
