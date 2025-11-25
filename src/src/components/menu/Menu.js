@@ -88,7 +88,7 @@ function Menu() {
                                 </a>
                                 <div className="dropdown-menu" aria-labelledby="navbar_api">
                                     <a className="dropdown-item" href="https://webapi.nextgenagroadvisory.com/" target="_blank">API NextGen</a>
-                                    <a className="dropdown-item" href="https://webapi.aclimate.org/" target="_blank">API Aclimate</a>
+                                    <a className="dropdown-item" href="https://webapi.aclimate.org/swagger/index.html" target="_blank">API Aclimate</a>
                                 </div>
 
                             </li>
@@ -100,6 +100,9 @@ function Menu() {
                             </li>
                             <li className="navbar-item">
                                 <Link className="nav-link" to="/partners">Partners</Link>
+                            </li>
+                            <li className="navbar-item">
+                                <Link className="nav-link" to="/chatbot">Chatbot</Link>
                             </li>
                         </ul>
 

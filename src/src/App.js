@@ -27,6 +27,8 @@ import CountrySelection from './pages/country_selection/CountrySelection';
 
 import store from './redux/store/store';
 import Partners from './pages/partners/Partners';
+import Chatbot from './pages/chatbot/Chatbot';
+import FloatingChatbotIcon from './components/FloatingChatbotIcon';
 
 class App extends Component {
   render() {
@@ -55,8 +57,10 @@ class App extends Component {
               <Route path='/methodology' element={<Methodology />} />
               <Route path='/about' element={<About />} />
               <Route path='/partners' element={<Partners />} />
+              <Route path='/chatbot' element={<Chatbot />} />
             </Routes>
           </div>
+          <FloatingChatbotIcon />
           <Footer />
         </Router>
 
