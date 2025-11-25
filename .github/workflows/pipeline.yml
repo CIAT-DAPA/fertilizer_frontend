@@ -5,9 +5,14 @@ name: Devops Fertalizer Front
 
 on:
   push:
-    branches: [ "stage" ]
+    branches:
+      - stage
+      - develop
     tags:
-    - 'v*'
+      - "v*"
+  pull_request:
+    branches:
+      - main
 
 
 permissions:
