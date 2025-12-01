@@ -356,10 +356,13 @@ If user provides coordinates, extract them in format "lat,lon". Valid Ethiopia c
 
 If user asks about other topics, provide general responses and redirect to fertilizer recommendations.`;
 
+            const apiKey = process.env.REACT_APP_GROQ_API;
+            console.log('API Key check:', apiKey ? `Present (length: ${apiKey.length})` : 'MISSING');
+            
             const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${process.env.REACT_APP_GROQ_API}`,
+                    'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
@@ -379,7 +382,21 @@ If user asks about other topics, provide general responses and redirect to ferti
                 })
             });
 
+            // Check if response is ok
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                console.error('Groq API error response:', response.status, errorData);
+                throw new Error(`API request failed: ${response.status} - ${JSON.stringify(errorData)}`);
+            }
+
             const data = await response.json();
+            
+            // Check if data has the expected structure
+            if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+                console.error('Unexpected API response structure:', data);
+                throw new Error('Unexpected API response format');
+            }
+            
             const content = data.choices[0].message.content;
             
             console.log('Raw Groq response:', content);
