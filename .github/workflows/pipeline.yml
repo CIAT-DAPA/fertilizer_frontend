@@ -88,15 +88,24 @@ jobs:
     - name: Install packages
       run: |
         cd ./src
+        # Verify secret is set (check if it's not empty)
+        if [ -z "${{ env.REACT_APP_GROQ_API }}" ]; then
+          echo "ERROR: REACT_APP_GROQ_API secret is empty or not set"
+          exit 1
+        fi
+        echo "REACT_APP_GROQ_API is set (value hidden for security)"
         echo "REACT_APP_GROQ_API=${{ env.REACT_APP_GROQ_API }}" > .env
         echo "Verifying .env file creation..."
         if [ -f .env ]; then
           echo ".env file created successfully"
-          # Don't print the actual key value for security, just verify it exists
-          if grep -q "REACT_APP_GROQ_API=" .env; then
-            echo "REACT_APP_GROQ_API is set in .env file"
+          # Verify the value is not empty in the file
+          if grep -q "REACT_APP_GROQ_API=" .env && ! grep -q "REACT_APP_GROQ_API=$" .env; then
+            echo "REACT_APP_GROQ_API is set in .env file with a value"
+            # Show first 10 chars to verify it's not empty (for debugging)
+            API_KEY_PREVIEW=$(grep "REACT_APP_GROQ_API=" .env | cut -d'=' -f2 | cut -c1-10)
+            echo "API key preview (first 10 chars): ${API_KEY_PREVIEW}..."
           else
-            echo "ERROR: REACT_APP_GROQ_API not found in .env file"
+            echo "ERROR: REACT_APP_GROQ_API is empty in .env file"
             exit 1
           fi
         else
