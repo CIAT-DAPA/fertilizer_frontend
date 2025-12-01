@@ -113,7 +113,19 @@ jobs:
           exit 1
         fi
         npm install
+        # Verify .env file is still there before build
+        if [ ! -f .env ]; then
+          echo "ERROR: .env file disappeared before build"
+          exit 1
+        fi
+        echo "Building with .env file present..."
         npm run build
+        # Verify build completed
+        if [ ! -d build ]; then
+          echo "ERROR: Build directory was not created"
+          exit 1
+        fi
+        echo "Build completed successfully"
     - name: Zip artifact front for deployment
       run: |
         cd ./src/build
