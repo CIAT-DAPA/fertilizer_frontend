@@ -41,6 +41,7 @@ jobs:
 
   MergeMasterApi:
     needs: [TestFront]
+    if: github.ref == 'refs/heads/stage'
     name: Merge Pre deploy with Main
     permissions: write-all
     runs-on: ubuntu-latest
@@ -61,6 +62,7 @@ jobs:
 
   PostRelease:
     needs: MergeMasterApi
+    if: github.ref == 'refs/heads/stage'
     name: Create Release
     runs-on: ubuntu-latest
     permissions: write-all
