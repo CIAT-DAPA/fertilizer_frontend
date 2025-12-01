@@ -126,11 +126,20 @@ jobs:
           exit 1
         fi
         echo "Build completed successfully"
-        # Verify API key is embedded in build (check if REACT_APP_GROQ_API appears in built files)
-        if grep -r "REACT_APP_GROQ_API" build/static/js/*.js 2>/dev/null | head -1 | grep -q "REACT_APP_GROQ_API"; then
-          echo "✓ API key found in built JavaScript files"
+        # Verify API key is embedded in build
+        # Note: React replaces process.env.REACT_APP_GROQ_API with the actual value during build
+        # So we check for the actual key value (first 10 chars) in the built files
+        API_KEY_START=$(grep "REACT_APP_GROQ_API=" .env | cut -d'=' -f2 | cut -c1-10)
+        if grep -r "$API_KEY_START" build/static/js/*.js 2>/dev/null | head -1 | grep -q "$API_KEY_START"; then
+          echo "✓ API key value found in built JavaScript files - key is embedded"
         else
-          echo "⚠ WARNING: API key not found in built JavaScript files - it may not be embedded"
+          echo "⚠ WARNING: API key value not found in built JavaScript files"
+          echo "Checking if process.env variables are present..."
+          if grep -r "process.env" build/static/js/*.js 2>/dev/null | head -1; then
+            echo "Found process.env references, but API key may not be embedded"
+          else
+            echo "No process.env references found - this is normal for production builds"
+          fi
         fi
     - name: Zip artifact front for deployment
       run: |
