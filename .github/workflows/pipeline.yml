@@ -51,6 +51,14 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
+      - name: Wait for TestFront status check
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.ref }}
+          check-name: 'TestFront'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
       - name: Merge pre_deploy -> main
         uses: devmasx/merge-branch@master
         with:
