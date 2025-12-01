@@ -51,6 +51,14 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
+      - name: Wait for TestFront status check
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.ref }}
+          check-name: 'TestFront'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
       - name: Merge pre_deploy -> main
         uses: devmasx/merge-branch@master
         with:
@@ -81,6 +89,20 @@ jobs:
       run: |
         cd ./src
         echo "REACT_APP_GROQ_API=${{ env.REACT_APP_GROQ_API }}" > .env
+        echo "Verifying .env file creation..."
+        if [ -f .env ]; then
+          echo ".env file created successfully"
+          # Don't print the actual key value for security, just verify it exists
+          if grep -q "REACT_APP_GROQ_API=" .env; then
+            echo "REACT_APP_GROQ_API is set in .env file"
+          else
+            echo "ERROR: REACT_APP_GROQ_API not found in .env file"
+            exit 1
+          fi
+        else
+          echo "ERROR: .env file was not created"
+          exit 1
+        fi
         npm install
         npm run build
     - name: Zip artifact front for deployment
