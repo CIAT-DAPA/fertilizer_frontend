@@ -126,6 +126,12 @@ jobs:
           exit 1
         fi
         echo "Build completed successfully"
+        # Verify API key is embedded in build (check if REACT_APP_GROQ_API appears in built files)
+        if grep -r "REACT_APP_GROQ_API" build/static/js/*.js 2>/dev/null | head -1 | grep -q "REACT_APP_GROQ_API"; then
+          echo "✓ API key found in built JavaScript files"
+        else
+          echo "⚠ WARNING: API key not found in built JavaScript files - it may not be embedded"
+        fi
     - name: Zip artifact front for deployment
       run: |
         cd ./src/build
