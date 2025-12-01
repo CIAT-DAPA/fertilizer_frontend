@@ -267,6 +267,17 @@ function Chatbot() {
 
     const sendMessageToGroq = async (userMessage, conversationContext = '') => {
         try {
+            // Check if API key is available
+            if (!process.env.REACT_APP_GROQ_API) {
+                console.error('REACT_APP_GROQ_API is not defined');
+                return {
+                    response: "I'm sorry, the API configuration is missing. Please contact the administrator.",
+                    extracted_data: {},
+                    missing_data: [],
+                    next_action: "collect_data"
+                };
+            }
+            
             const { crops, fertilizers } = getAvailableCropsAndFertilizers();
             
             const systemPrompt = `You are an expert in site specific Fertilizer recommendation. Your goal is to help users get fertilizer recommendations by collecting 3 pieces of information:
@@ -414,8 +425,19 @@ If user asks about other topics, provide general responses and redirect to ferti
             }
         } catch (error) {
             console.error('Error calling Groq API:', error);
+            console.error('API Key available:', !!process.env.REACT_APP_GROQ_API);
+            console.error('Error details:', error.message, error.response?.status, error.response?.data);
+            
+            // Provide more specific error message
+            let errorMessage = "I'm sorry, I'm having trouble processing your request right now. Please try again.";
+            if (!process.env.REACT_APP_GROQ_API) {
+                errorMessage = "I'm sorry, the API configuration is missing. Please contact the administrator.";
+            } else if (error.response?.status === 401) {
+                errorMessage = "I'm sorry, there's an authentication issue. Please contact the administrator.";
+            }
+            
             return {
-                response: "I'm sorry, I'm having trouble processing your request right now. Please try again.",
+                response: errorMessage,
                 extracted_data: {},
                 missing_data: [],
                 next_action: "collect_data"
