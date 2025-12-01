@@ -75,6 +75,8 @@ jobs:
     - name: Install packages
       run: npm --prefix ./src install
     - name: Run build
+      env:
+        REACT_APP_GROQ_API: ${{ secrets.REACT_APP_GROQ_API }}
       run: npm --prefix ./src run build
     - name: Zip artifact front for deployment
       run: zip releaseFront.zip ./src/build/* -r
