@@ -35,11 +35,12 @@ pipeline {
                         mkdir front_backup_\$(date +"%Y%m%d")
                         cp -r /opt/nagroadvisory/front/* front_backup_\$(date +"%Y%m%d")
                         rm -fr releaseFront.zip
+                        rm -rf build
                         curl -LOk https://github.com/CIAT-DAPA/fertilizer_frontend/releases/latest/download/releaseFront.zip
-                        unzip -o releaseFront.zip
-                        rm -fr releaseFront.zip
-                        cp -r src/build/* /opt/nagroadvisory/front/
-                        rm -fr src
+                        unzip releaseFront.zip -d build
+                        rm -r releaseFront.zip
+                        cp -r build/* /opt/nagroadvisory/front/
+                        rm -rf build
                     """
                 }
             }

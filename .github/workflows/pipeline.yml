@@ -1,19 +1,10 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
-
 name: Devops Fertalizer Front
 
 on:
   push:
-    branches:
-      - stage
-      - develop
+    branches: [ "stage" ]
     tags:
-      - "v*"
-  pull_request:
-    branches:
-      - main
-
+    - 'v*'
 
 permissions:
   contents: read
@@ -24,9 +15,8 @@ env:
 jobs:
 
 # ------- START FRONT PROCCESS -------- #
-  
-    
-  TestFront:
+
+  InstallPackage:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -34,30 +24,22 @@ jobs:
         with:
           node-version: 18
       - name: Install packages
-        run: npm --prefix ./src install
-      - name: Run tests
-        run: npm --prefix ./src test
+        run: |
+          cd ./src
+          echo "REACT_APP_GROQ_API=${{env.REACT_APP_GROQ_API}}" > .env
+          npm install
 
 # ------- END FRONT PROCCESS -------- #
 
 # ------- START MERGE PROCCESS -------- #
 
-  MergeMasterApi:
-    needs: [TestFront]
-    if: github.ref == 'refs/heads/stage'
+  MergeMainFront:
+    needs: [InstallPackage]
     name: Merge Pre deploy with Main
     permissions: write-all
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-
-      - name: Wait for TestFront status check
-        uses: lewagon/wait-on-check-action@v1.3.4
-        with:
-          ref: ${{ github.ref }}
-          check-name: 'TestFront'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
+      - uses: actions/checkout@main
 
       - name: Merge pre_deploy -> main
         uses: devmasx/merge-branch@master
@@ -72,8 +54,7 @@ jobs:
 # ------- START RELEASE PROCCESS -------- #
 
   PostRelease:
-    needs: MergeMasterApi
-    if: github.ref == 'refs/heads/stage'
+    needs: MergeMainFront
     name: Create Release
     runs-on: ubuntu-latest
     permissions: write-all
@@ -87,65 +68,16 @@ jobs:
     # Front Zip
     - name: Install packages
       run: |
-        cd ./src
-        # Verify secret is set (check if it's not empty)
-        if [ -z "${{ env.REACT_APP_GROQ_API }}" ]; then
-          echo "ERROR: REACT_APP_GROQ_API secret is empty or not set"
-          exit 1
-        fi
-        echo "REACT_APP_GROQ_API is set (value hidden for security)"
-        echo "REACT_APP_GROQ_API=${{ env.REACT_APP_GROQ_API }}" > .env
-        echo "Verifying .env file creation..."
-        if [ -f .env ]; then
-          echo ".env file created successfully"
-          # Verify the value is not empty in the file
-          if grep -q "REACT_APP_GROQ_API=" .env && ! grep -q "REACT_APP_GROQ_API=$" .env; then
-            echo "REACT_APP_GROQ_API is set in .env file with a value"
-            # Show first 10 chars to verify it's not empty (for debugging)
-            API_KEY_PREVIEW=$(grep "REACT_APP_GROQ_API=" .env | cut -d'=' -f2 | cut -c1-10)
-            echo "API key preview (first 10 chars): ${API_KEY_PREVIEW}..."
-          else
-            echo "ERROR: REACT_APP_GROQ_API is empty in .env file"
-            exit 1
-          fi
-        else
-          echo "ERROR: .env file was not created"
-          exit 1
-        fi
-        npm install
-        # Verify .env file is still there before build
-        if [ ! -f .env ]; then
-          echo "ERROR: .env file disappeared before build"
-          exit 1
-        fi
-        echo "Building with .env file present..."
-        npm run build
-        # Verify build completed
-        if [ ! -d build ]; then
-          echo "ERROR: Build directory was not created"
-          exit 1
-        fi
-        echo "Build completed successfully"
-        # Verify API key is embedded in build
-        # Note: React replaces process.env.REACT_APP_GROQ_API with the actual value during build
-        # So we check for the actual key value (first 10 chars) in the built files
-        API_KEY_START=$(grep "REACT_APP_GROQ_API=" .env | cut -d'=' -f2 | cut -c1-10)
-        if grep -r "$API_KEY_START" build/static/js/*.js 2>/dev/null | head -1 | grep -q "$API_KEY_START"; then
-          echo "✓ API key value found in built JavaScript files - key is embedded"
-        else
-          echo "⚠ WARNING: API key value not found in built JavaScript files"
-          echo "Checking if process.env variables are present..."
-          if grep -r "process.env" build/static/js/*.js 2>/dev/null | head -1; then
-            echo "Found process.env references, but API key may not be embedded"
-          else
-            echo "No process.env references found - this is normal for production builds"
-          fi
-        fi
+          cd ./src
+          echo "REACT_APP_GROQ_API=${{env.REACT_APP_GROQ_API}}" > .env
+          npm install
+          npm run build
+
     - name: Zip artifact front for deployment
       run: |
-        cd ./src/build
-        ls
-        zip releaseFront.zip ./* -r
+          cd ./src/build
+          ls
+          zip releaseFront.zip ./* -r
     # Upload Artifacts
     - name: Upload Front artifact for deployment job
       uses: actions/upload-artifact@v4
@@ -166,16 +98,26 @@ jobs:
     # Create release
     - name: Create Release
       id: create_release
-      uses: softprops/action-gh-release@v1
+      uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ github.token }}
       with:
         tag_name: ${{ steps.taggerDryRun.outputs.new_tag }}
-        name: Release ${{ steps.taggerDryRun.outputs.new_tag }}
+        release_name: Release ${{ steps.taggerDryRun.outputs.new_tag }}
         body: ${{ github.event.head_commit.message }}
         draft: false
         prerelease: false
-        files: ./src/build/releaseFront.zip
+    # Upload Assets to release
+    - name: Upload Release Asset Front
+      id: upload-front-release-asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./src/build/releaseFront.zip
+        asset_name: releaseFront.zip
+        asset_content_type: application/zip
 
 # ------- END RELEASE PROCCESS -------- #
       
