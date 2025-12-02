@@ -2,9 +2,14 @@ name: Devops Fertalizer Front
 
 on:
   push:
-    branches: [ "stage" ]
+    branches:
+      - stage
+      - develop
     tags:
-    - 'v*'
+      - "v*"
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -16,6 +21,10 @@ jobs:
 
 # ------- START FRONT PROCCESS -------- #
 
+  
+
+    
+
   TestFront:
     runs-on: ubuntu-latest
     steps:
@@ -24,22 +33,22 @@ jobs:
         with:
           node-version: 18
       - name: Install packages
-        run: |
-          cd ./src
-          echo "REACT_APP_GROQ_API=${{env.REACT_APP_GROQ_API}}" > .env
-          npm install
+        run: npm --prefix ./src install
+      - name: Run tests
+        run: npm --prefix ./src test
 
 # ------- END FRONT PROCCESS -------- #
 
 # ------- START MERGE PROCCESS -------- #
 
-  MergeMainFront:
+  MergeMasterApi:
     needs: [TestFront]
+    if: github.event_name == 'push'
     name: Merge Pre deploy with Main
     permissions: write-all
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@main
+      - uses: actions/checkout@master
 
       - name: Merge pre_deploy -> main
         uses: devmasx/merge-branch@master
@@ -54,7 +63,8 @@ jobs:
 # ------- START RELEASE PROCCESS -------- #
 
   PostRelease:
-    needs: MergeMainFront
+    needs: MergeMasterApi
+    if: github.event_name == 'push'
     name: Create Release
     runs-on: ubuntu-latest
     permissions: write-all
@@ -71,7 +81,9 @@ jobs:
           cd ./src
           echo "REACT_APP_GROQ_API=${{env.REACT_APP_GROQ_API}}" > .env
           npm install
-          npm run build
+
+    - name: Run build
+      run: npm --prefix ./src run build
 
     - name: Zip artifact front for deployment
       run: |
@@ -104,12 +116,13 @@ jobs:
       with:
         tag_name: ${{ steps.taggerDryRun.outputs.new_tag }}
         release_name: Release ${{ steps.taggerDryRun.outputs.new_tag }}
+        #body_path: ./body.md
         body: ${{ github.event.head_commit.message }}
         draft: false
         prerelease: false
     # Upload Assets to release
     - name: Upload Release Asset Front
-      id: upload-front-release-asset
+      id: upload-front-release-asset 
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
