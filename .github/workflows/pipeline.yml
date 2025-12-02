@@ -16,7 +16,7 @@ jobs:
 
 # ------- START FRONT PROCCESS -------- #
 
-  InstallPackage:
+  TestFront:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -34,7 +34,7 @@ jobs:
 # ------- START MERGE PROCCESS -------- #
 
   MergeMainFront:
-    needs: [InstallPackage]
+    needs: [TestFront]
     name: Merge Pre deploy with Main
     permissions: write-all
     runs-on: ubuntu-latest
