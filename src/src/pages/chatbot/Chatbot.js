@@ -203,25 +203,32 @@ function Chatbot() {
     const getAvailableCropsAndFertilizers = () => {
         const crops = new Set();
         const fertilizers = new Set();
+        let hasYield = false;
         
         availableLayers.forEach(layer => {
             const parsed = parseLayerName(layer);
             if (parsed) {
                 crops.add(parsed.crop);
-                // Map 'n' to 'n (nitrogen)' and 'p' to 'p (phosphorus)' for display
-                if (parsed.fertilizer === 'n') {
-                    fertilizers.add('nitrogen');
-                } else if (parsed.fertilizer === 'p') {
-                    fertilizers.add('phosphorus');
-                } else {
-                    fertilizers.add(parsed.fertilizer);
+                // Check if yield is available (only yieldtypes_optimal_dominant)
+                if (parsed.fertilizer === 'yieldtypes_optimal' && parsed.scenario === 'dominant') {
+                    hasYield = true;
+                } else if (parsed.fertilizer !== 'yieldtypes' && parsed.fertilizer !== 'yieldtypes_optimal') {
+                    // Map 'n' to 'n (nitrogen)' and 'p' to 'p (phosphorus)' for display
+                    if (parsed.fertilizer === 'n') {
+                        fertilizers.add('nitrogen');
+                    } else if (parsed.fertilizer === 'p') {
+                        fertilizers.add('phosphorus');
+                    } else {
+                        fertilizers.add(parsed.fertilizer);
+                    }
                 }
             }
         });
         
         return {
             crops: Array.from(crops).sort(),
-            fertilizers: Array.from(fertilizers).sort()
+            fertilizers: Array.from(fertilizers).sort(),
+            hasYield: hasYield
         };
     };
 
@@ -229,6 +236,7 @@ function Chatbot() {
     const findMatchingLayer = (cropInput, fertilizerInput) => {
         const cropLower = cropInput.toLowerCase();
         let fertilizerLower = fertilizerInput.toLowerCase();
+        let isYieldRequest = false;
 
         // Map user input 'nitrogen' to 'n' and 'phosphorus' to 'p' for matching
         if (fertilizerLower === 'nitrogen') {
@@ -237,12 +245,25 @@ function Chatbot() {
             fertilizerLower = 'p';
         }
 
-        // Map user input 'yield' or 'yieldtypes' to 'yieldtypes_optimal'
-        if (fertilizerLower === 'yield' || fertilizerLower === 'yieldtypes') {
+        // Map user input 'yield', 'yieldtypes', or 'yieldtypes_optimal' to 'yieldtypes_optimal'
+        // Always use dominant scenario for yield requests
+        if (fertilizerLower === 'yield' || fertilizerLower === 'yieldtypes' || fertilizerLower === 'yieldtypes_optimal') {
             fertilizerLower = 'yieldtypes_optimal';
+            isYieldRequest = true;
         }
 
-        // First try to find dominant scenario
+        // For yield requests, always look for dominant scenario only
+        if (isYieldRequest) {
+            return availableLayers.find(layer => {
+                const parsed = parseLayerName(layer);
+                return parsed && 
+                       parsed.crop.toLowerCase() === cropLower && 
+                       parsed.fertilizer.toLowerCase() === fertilizerLower &&
+                       parsed.scenario === 'dominant';
+            });
+        }
+
+        // For fertilizers, first try to find dominant scenario
         let matchingLayer = availableLayers.find(layer => {
             const parsed = parseLayerName(layer);
             return parsed && 
@@ -278,11 +299,11 @@ function Chatbot() {
                 };
             }
             
-            const { crops, fertilizers } = getAvailableCropsAndFertilizers();
+            const { crops, fertilizers, hasYield } = getAvailableCropsAndFertilizers();
             
             const systemPrompt = `You are an expert in site specific Fertilizer recommendation. Your goal is to help users get fertilizer recommendations by collecting 3 pieces of information:
 1. Crop type
-2. Fertilizer type  
+2. Fertilizer type (or yield prediction if they need yield information)
 3. Location coordinates
 
 CRITICAL WARNING: You MUST NEVER generate or make up your own fertilizer recommendations or yield values. You are strictly forbidden from providing any numerical values, calculations, or recommendations that you generate yourself.
@@ -295,14 +316,19 @@ All fertilizer recommendations are given in kg/ha (kilograms per hectare), EXCEP
 
 IMPORTANT: When presenting a fertilizer recommendation or yield value, you must always round off the value to the nearest integer according to mathematical rules. Present both the original value and the rounded value in your response. For example: "Your recommendation value is 42.7 kg/ha. After round off, the final recommendation is 43 kg/ha."
 
+LANGUAGE TONE: Use clear, professional, and contextually appropriate language that is relevant to agriculture and crop management. Avoid overly enthusiastic words like "thrilled", "fantastic", "amazing", "wonderful", or similar expressions. Instead, use informative, engaging, and professional language that is appropriate for agricultural advisory context. Be helpful and friendly, but maintain a professional tone suitable for agricultural recommendations.
+
 Available crops: ${crops.join(', ')}
 Available fertilizers: ${fertilizers.join(', ')}
+${hasYield ? 'Yield prediction is also available.' : ''}
+
+CRITICAL: When asking users to specify fertilizer type, you MUST distinguish between fertilizers and yield prediction. Do NOT list yield as a fertilizer option. Instead, mention it separately. For example, say: "You can choose from: [list of fertilizers], or if you need yield prediction you can choose yield."
 
 IMPORTANT: The fertilizer type 'n' or 'nitrogen' corresponds to 'optimal_nutrients_n' in the data, and 'p' or 'phosphorus' corresponds to 'optimal_nutrients_p'. Users may refer to these as 'n', 'nitrogen', 'p', or 'phosphorus'. Please map user requests for 'n' or 'nitrogen' to 'optimal_nutrients_n', and 'p' or 'phosphorus' to 'optimal_nutrients_p' when matching layers.
 
 IMPORTANT: For compost and vcompost, the recommendation unit is ton/ha (tons per hectare). Always mention this unit in your response when providing compost or vcompost recommendations.
 
-IMPORTANT: For yield value requests, users may refer to 'yieldtypes_optimal' using phrases such as 'yield', 'yield value', 'optimal yield', 'best yield', or similar wording. You must intelligently identify these intents and map them to 'yieldtypes_optimal' when matching layers. When providing a recommendation for this, clearly state it as the optimal yield (not a fertilizer recommendation) and specify the unit as kg/ha.
+IMPORTANT: For yield value requests, users may refer to yield using phrases such as 'yield', 'yield value', 'optimal yield', 'best yield', 'yield prediction', or similar wording. You must intelligently identify these intents and map them to 'yield' when extracting data. The system will handle the technical layer matching internally. When providing a recommendation for this, clearly state it as the optimal yield (not a fertilizer recommendation) and specify the unit as kg/ha. Always use the word "yield" when communicating with users, never use technical terms like "yieldtypes" or "yieldtypes_optimal".
 
 REMEMBER: You are a data presenter, not a calculator. You can only present values that come from the API endpoint. Never invent, estimate, or calculate values yourself, except for rounding off the value to the nearest integer as instructed above.
 
@@ -324,12 +350,13 @@ Available crops: ${crops.join(', ')}
 
 🌱 Fertilizer Type: Specify which fertilizer you need
 Available fertilizers: ${fertilizers.join(', ')}
+${hasYield ? '\n📊 Yield Prediction: If you need yield prediction, you can choose: yield' : ''}
 
 📍 Location: Provide your coordinates in Ethiopia (latitude, longitude) or I can help you find them on a map!
 
 I'll then analyze your specific location's soil, climate, and crop needs to give you the perfect recommendation!
 
-Ready to get started? Just tell me your crop and fertilizer type! 🚀"
+Ready to get started? Just tell me your crop and fertilizer type (or yield if you need yield prediction)! 🚀"
 
 IMPORTANT: Before providing a fertilizer recommendation, always analyze the user's latest message for intent and clarity.
 - If the message is unclear, off-topic, or not a valid fertilizer request (e.g., random words, greetings, or unrelated questions), do NOT provide a recommendation.
@@ -513,7 +540,7 @@ Please provide a helpful, conversational response that explains they need to cli
             await getRecommendationWithData(updatedData);
         } else {
             // Ask for missing data
-            const { crops, fertilizers } = getAvailableCropsAndFertilizers();
+            const { crops, fertilizers, hasYield } = getAvailableCropsAndFertilizers();
             
             let missingDataPrompt = '';
             if (missingData.length === 2) {
@@ -522,8 +549,9 @@ Please provide a helpful, conversational response that explains they need to cli
 
 Available crops: ${crops.join(', ')}
 Available fertilizers: ${fertilizers.join(', ')}
+${hasYield ? 'Yield prediction is also available.' : ''}
 
-Please provide a helpful, conversational response that acknowledges their location selection and asks them to provide both their crop and fertilizer type. Give examples of how they can phrase their request.`;
+Please provide a helpful, conversational response that acknowledges their location selection and asks them to provide both their crop and fertilizer type (or yield if they need yield prediction). When listing options, distinguish between fertilizers and yield. For example: "You can choose from: [list of fertilizers], or if you need yield prediction you can choose yield." Give examples of how they can phrase their request.`;
             } else if (missingData.includes('crop')) {
                 // Only crop is missing
                 missingDataPrompt = `The user selected their location (${coordinates.lat}, ${coordinates.lon}) and provided fertilizer type "${updatedData.fertilizer}" but hasn't specified their crop yet.
@@ -536,8 +564,9 @@ Please provide a helpful, conversational response that acknowledges their locati
                 missingDataPrompt = `The user selected their location (${coordinates.lat}, ${coordinates.lon}) and provided crop "${updatedData.crop}" but hasn't specified their fertilizer type yet.
 
 Available fertilizers: ${fertilizers.join(', ')}
+${hasYield ? 'Yield prediction is also available.' : ''}
 
-Please provide a helpful, conversational response that acknowledges their location and crop selection, and asks them to specify which fertilizer type they want recommendations for.`;
+Please provide a helpful, conversational response that acknowledges their location and crop selection, and asks them to specify which fertilizer type they want recommendations for. When listing options, distinguish between fertilizers and yield. For example: "You can choose from: [list of fertilizers], or if you need yield prediction you can choose yield."`;
             }
 
             const botResponse = await sendMessageToGroq(missingDataPrompt);
@@ -619,7 +648,9 @@ Crop: ${parsed.crop}
 Location: ${data.coordinates}
 Yield Value: ${recommendation[0].value}
 
-Please provide a conversational response that celebrates their successful yield result and includes all the above information naturally. Make sure to clearly state this is a yield value (not a fertilizer recommendation) and specify the unit as kg/ha. Also ask if there's anything else they'd like to know about yield or fertilizers. Do not use any markdown formatting like ** or * - just plain text.`;
+Please provide a clear, professional, and contextually appropriate response that presents the yield value information. Use language that is relevant to agriculture and crop management. Avoid overly enthusiastic words like "thrilled", "fantastic", "amazing", or similar expressions. Instead, use clear, informative, and engaging language that is appropriate for agricultural advisory context.
+
+Include all the above information naturally. Make sure to clearly state this is a yield value (not a fertilizer recommendation) and specify the unit as kg/ha. Also ask if there's anything else they'd like to know about yield or fertilizers. Do not use any markdown formatting like ** or * - just plain text.`;
                     resultMessage = await sendMessageToGroq(successPrompt);
                 } else {
                     // Fertilizer recommendation response
@@ -629,7 +660,9 @@ Fertilizer: ${parsed.fertilizer}
 Location: ${data.coordinates}
 Recommendation Value: ${recommendation[0].value}
 
-Please provide a conversational response that celebrates their successful recommendation and includes all the above information naturally. Also ask if there's anything else they'd like to know about fertilizers. Do not use any markdown formatting like ** or * - just plain text.`;
+Please provide a clear, professional, and contextually appropriate response that presents the fertilizer recommendation information. Use language that is relevant to agriculture and crop management. Avoid overly enthusiastic words like "thrilled", "fantastic", "amazing", or similar expressions. Instead, use clear, informative, and engaging language that is appropriate for agricultural advisory context.
+
+Include all the above information naturally. Also ask if there's anything else they'd like to know about fertilizers. Do not use any markdown formatting like ** or * - just plain text.`;
                     resultMessage = await sendMessageToGroq(successPrompt);
                 }
             } else {
