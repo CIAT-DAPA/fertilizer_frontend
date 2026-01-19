@@ -60,11 +60,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Merge develop -> main
+      - name: Merge to main
         run: |
+          SOURCE_BRANCH="${{ github.ref_name }}"
           git checkout main
           git pull origin main
-          git merge origin/develop --no-edit -m "Merge develop into main: ${{ github.event.head_commit.message }}"
+          git merge origin/$SOURCE_BRANCH --no-edit -m "Merge $SOURCE_BRANCH into main: ${{ github.event.head_commit.message }}"
           git push origin main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN || secrets.PAT_TOKEN }}
