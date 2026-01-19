@@ -45,18 +45,50 @@ jobs:
     needs: [TestFront]
     if: github.event_name == 'push'
     name: Merge Pre deploy with Main
-    permissions: write-all
+    permissions: 
+      contents: write
+      pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-
-      - name: Merge pre_deploy -> main
-        uses: devmasx/merge-branch@master
+      - uses: actions/checkout@v3
         with:
-          type: now
-          head_to_merge: ${{ github.ref }}
-          target_branch: main
-          github_token: ${{ github.token }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN || secrets.PAT_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge to all branches
+        run: |
+          SOURCE_BRANCH="${{ github.ref_name }}"
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          
+          # Function to merge to a branch
+          merge_to_branch() {
+            local TARGET_BRANCH=$1
+            if [ "$SOURCE_BRANCH" != "$TARGET_BRANCH" ]; then
+              echo "Merging $SOURCE_BRANCH into $TARGET_BRANCH..."
+              git checkout $TARGET_BRANCH
+              git pull origin $TARGET_BRANCH
+              git merge origin/$SOURCE_BRANCH --no-edit -m "Merge $SOURCE_BRANCH into $TARGET_BRANCH: $COMMIT_MSG"
+              git push origin $TARGET_BRANCH
+            else
+              echo "Skipping merge to $TARGET_BRANCH (same as source branch)"
+            fi
+          }
+          
+          # Merge to develop
+          merge_to_branch develop
+          
+          # Merge to main
+          merge_to_branch main
+          
+          # Merge to stage
+          merge_to_branch stage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN || secrets.PAT_TOKEN }}
 
 # ------- END MERGE PROCCESS -------- #
 
