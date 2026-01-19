@@ -60,13 +60,33 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Merge to main
+      - name: Merge to all branches
         run: |
           SOURCE_BRANCH="${{ github.ref_name }}"
-          git checkout main
-          git pull origin main
-          git merge origin/$SOURCE_BRANCH --no-edit -m "Merge $SOURCE_BRANCH into main: ${{ github.event.head_commit.message }}"
-          git push origin main
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          
+          # Function to merge to a branch
+          merge_to_branch() {
+            local TARGET_BRANCH=$1
+            if [ "$SOURCE_BRANCH" != "$TARGET_BRANCH" ]; then
+              echo "Merging $SOURCE_BRANCH into $TARGET_BRANCH..."
+              git checkout $TARGET_BRANCH
+              git pull origin $TARGET_BRANCH
+              git merge origin/$SOURCE_BRANCH --no-edit -m "Merge $SOURCE_BRANCH into $TARGET_BRANCH: $COMMIT_MSG"
+              git push origin $TARGET_BRANCH
+            else
+              echo "Skipping merge to $TARGET_BRANCH (same as source branch)"
+            fi
+          }
+          
+          # Merge to develop
+          merge_to_branch develop
+          
+          # Merge to main
+          merge_to_branch main
+          
+          # Merge to stage
+          merge_to_branch stage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN || secrets.PAT_TOKEN }}
 
