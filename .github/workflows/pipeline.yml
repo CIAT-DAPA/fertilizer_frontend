@@ -45,18 +45,29 @@ jobs:
     needs: [TestFront]
     if: github.event_name == 'push'
     name: Merge Pre deploy with Main
-    permissions: write-all
+    permissions: 
+      contents: write
+      pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-
-      - name: Merge pre_deploy -> main
-        uses: devmasx/merge-branch@master
+      - uses: actions/checkout@v3
         with:
-          type: now
-          head_to_merge: ${{ github.ref }}
-          target_branch: main
-          github_token: ${{ github.token }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN || secrets.PAT_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge develop -> main
+        run: |
+          git checkout main
+          git pull origin main
+          git merge origin/develop --no-edit -m "Merge develop into main: ${{ github.event.head_commit.message }}"
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN || secrets.PAT_TOKEN }}
 
 # ------- END MERGE PROCCESS -------- #
 
