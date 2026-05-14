@@ -11,14 +11,10 @@ function About() {
                     <h2 className='font-link'>About us</h2>
                     <br/>
                     <p className='font-link-body'>
-                        NextGenAgroadvisry is a project designed to develop site, context, and climate specific
-                        agricultural advisories particularly in fertilizer application,
-                        integrated soil fertility management (ISFM), climate information service,
-                        climate smart agricultural activities (CSA) and other agricultural investment in Ethiopia.
+                    HaFAS Agro-Advisory Platform is a nationally coordinated digital agriculture initiative designed to deliver site-, context-, and climate-specific agricultural advisory services in Ethiopia. The platform provides data-driven recommendations on fertilizer application, integrated soil fertility management (ISFM), climate information services, climate-smart agriculture (CSA), lime application, and other crop-specific agronomic solutions to support sustainable agricultural productivity and resilience.
                         <br />
                         <br />
-                        It is a project by the Alliance of Bioversity International and CIAT in partnership with support of SSHI 
-                        (GIZ-Ethiopia) (BMGF), EiA (oneCGIAR initiative), and AICCRA (World Bank).
+                        The platform is developed through collaboration among the Alliance of Bioversity International and CIAT, national and international partners, and CGIAR initiatives, with support from SSHI (GIZ-Ethiopia), BMGF, EiA (oneCGIAR initiative), and AICCRA (World Bank).
                     </p>
                     
                     <br/>

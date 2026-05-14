@@ -21,7 +21,7 @@ function Menu() {
             <nav className="navbar navbar-expand-md navbar-dark fixed-top bg-dark" style={{ zIndex: '2000' }}>
                 <div className="container-fluid">
                     <img src={logo_nextgen} width='40px' className='me-2' />
-                    <Link className="navbar-brand" to="/">NextGen Agroadvisory</Link>
+                    <Link className="navbar-brand" to="/">HaFAS Agro-Advisory</Link>
                     <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
                         <span className="navbar-toggler-icon"></span>
                     </button>
