@@ -214,14 +214,9 @@ function Home() {
 
                         </div>
 
-                        <h1 className='font-link text-center'><b>NextGen Agroadvisory - {country}</b></h1>
+                        <h1 className='font-link text-center'><b>HaFAS Agro-Advisory Platform - {country}</b></h1>
                         <p className='font-link-body'>
-                            NextGenAgroadvisory is a project designed to develop location-, context-, and climate- specific agricultural
-                            advisories particularly related to optimal fertilizer application, integrated soil fertility management (ISFM),
-                            climate information service, climate smart agricultural activities (CSA), pest and disease surveillance, and other
-                            agricultural investments in Ethiopia. It is a project by the Alliance of Bioversity International and the International
-                            Center for Tropical Agriculture (CIAT) in partnership with support of SSHI (BMGF), EiA (oneCGIAR initiative),
-                            AICCRA (World Bank), and SI-MFS (oneCGIAR initiative).
+                        Harmonized Digital Fertilizer and Agronomic Solutions (HaFAS) is a nationally coordinated digital agriculture platform designed to deliver context-specific, climate-smart, and data-driven agronomic advisory services for Ethiopia’s diverse farming systems. By integrating advanced analytics, artificial intelligence (AI), geospatial data, soil intelligence, and local agronomic expertise, HaFAS transforms fertilizer recommendations into actionable insights that support improved productivity, soil health, and sustainable agricultural development. The platform is progressively integrating climate information, lime application guidance, and crop-specific agronomic recommendations to empower millions of farmers with scalable, farmer-centered digital advisory services across Ethiopia.
                         </p>
 
 
