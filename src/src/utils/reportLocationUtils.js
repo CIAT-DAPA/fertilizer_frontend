@@ -33,8 +33,8 @@ export function getLocationSelectionPath(report) {
     const [name, id] = report.country;
     return `/country_selected/${encodeURIComponent(name)}/${id}`;
   }
-  // Country picker loads ids from the API — avoids hardcoded Mongo ids that differ per environment.
-  return '/';
+  // Default Ethiopia path (production API id; override via REACT_APP_DEFAULT_COUNTRY_ID for local).
+  return `/country_selected/${encodeURIComponent(DEFAULT_COUNTRY_NAME)}/${DEFAULT_COUNTRY_ID}`;
 }
 
 /** Resolve dashboard quick-link / nav paths (location picker, report, static routes). */
