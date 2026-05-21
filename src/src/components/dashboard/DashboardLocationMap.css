@@ -1,0 +1,50 @@
+.dash-loc-map__frame {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background: #f1f5f9;
+  min-height: 320px;
+}
+
+.dash-loc-map__leaflet {
+  height: 360px;
+  width: 100%;
+  z-index: 0;
+}
+
+.dash-loc-map__overlay {
+  position: absolute;
+  inset: auto 1rem 1rem 1rem;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #e2e8f0;
+  font-size: 0.82rem;
+  color: #475569;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  pointer-events: none;
+}
+
+.dash-loc-map__caption {
+  margin: 0.65rem 0 0;
+  font-size: 0.82rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dash-loc-map__caption strong {
+  color: #0f172a;
+}
+
+@media (max-width: 575.98px) {
+  .dash-loc-map__leaflet {
+    height: 280px;
+  }
+}

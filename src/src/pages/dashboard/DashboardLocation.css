@@ -1,0 +1,440 @@
+/* ─── Location page — modern workspace ─── */
+
+.dash-location--modern {
+  --dl-green-deep: #0d2818;
+  --dl-green-mid: #1b4332;
+  --dl-green: #2d6a4f;
+  --dl-green-light: #52b788;
+  --dl-green-pale: #d8f3dc;
+  --dl-slate: #0f172a;
+  --dl-muted: #64748b;
+  --dl-radius: 16px;
+  --dl-radius-lg: 20px;
+  --dl-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+  --dl-shadow-lg: 0 16px 40px rgba(27, 67, 50, 0.12);
+  animation: dl-fade-in 0.5s ease-out;
+}
+
+@keyframes dl-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Buttons */
+.dash-loc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.dash-loc-btn--primary {
+  background: var(--dl-green);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(45, 106, 79, 0.35);
+}
+
+.dash-loc-btn--primary:hover {
+  color: #fff;
+  background: var(--dl-green-mid);
+  transform: translateY(-1px);
+}
+
+.dash-loc-btn--ghost {
+  background: #fff;
+  color: var(--dl-green);
+  border: 1px solid #cbd5e1;
+}
+
+.dash-loc-btn--ghost:hover {
+  color: var(--dl-green-mid);
+  border-color: var(--dl-green-light);
+  background: #f8fafc;
+}
+
+.dash-page-header__actions .dash-loc-btn {
+  white-space: nowrap;
+}
+
+/* Empty state */
+.dash-loc-empty {
+  text-align: center;
+  padding: 3rem 1.5rem 3.5rem;
+  background: #fff;
+  border-radius: var(--dl-radius-lg);
+  border: 1px dashed #cbd5e1;
+  max-width: 32rem;
+  margin: 0 auto;
+}
+
+.dash-loc-empty__icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 1.25rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--dl-green) 12%, white);
+  color: var(--dl-green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+}
+
+.dash-loc-empty h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--dl-slate);
+  margin-bottom: 0.5rem;
+}
+
+.dash-loc-empty p {
+  color: var(--dl-muted);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  margin-bottom: 1.5rem;
+}
+
+/* Hero */
+.dash-loc-hero {
+  position: relative;
+  border-radius: var(--dl-radius-lg);
+  padding: 1.75rem 2rem;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0a1628 0%, var(--dl-green-mid) 45%, #1a5c42 100%);
+  color: #fff;
+  box-shadow: var(--dl-shadow-lg);
+}
+
+.dash-loc-hero__mesh {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 55% at 100% 0%, rgba(82, 183, 136, 0.3) 0%, transparent 55%),
+    radial-gradient(ellipse 45% 40% at 0% 100%, rgba(45, 106, 79, 0.35) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.dash-loc-hero__inner {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.dash-loc-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--dl-green-pale);
+  margin: 0 0 0.5rem;
+}
+
+.dash-loc-hero__title {
+  font-size: clamp(1.4rem, 3vw, 1.85rem);
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.02em;
+}
+
+.dash-loc-hero__highlight {
+  background: linear-gradient(90deg, #95d5b2, #d8f3dc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.dash-loc-hero__text {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.78);
+  max-width: 36rem;
+}
+
+.dash-loc-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.dash-loc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dash-loc-pill--muted {
+  background: rgba(0, 0, 0, 0.15);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.dash-loc-hero__ring-wrap {
+  text-align: center;
+  min-width: 120px;
+}
+
+.dash-loc-ring {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto;
+}
+
+.dash-loc-ring__svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.dash-loc-ring__track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.15);
+  stroke-width: 2.8;
+}
+
+.dash-loc-ring__fill {
+  fill: none;
+  stroke: #95d5b2;
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.4s ease;
+}
+
+.dash-loc-ring__value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.dash-loc-hero__ring-label {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Hierarchy trail */
+.dash-loc-trail-section {
+  margin-bottom: 1.5rem;
+}
+
+.dash-loc-trail {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dash-loc-trail__step {
+  flex: 1 1 9rem;
+  min-width: 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.dash-loc-trail__step.is-done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.dash-loc-trail__step.is-active {
+  border-color: #86efac;
+  box-shadow: 0 0 0 2px rgba(45, 106, 79, 0.12);
+}
+
+.dash-loc-trail__icon {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.9rem;
+  margin-bottom: 0.35rem;
+}
+
+.dash-loc-trail__step.is-done .dash-loc-trail__icon {
+  background: color-mix(in srgb, var(--dl-green) 15%, white);
+  color: var(--dl-green);
+}
+
+.dash-loc-trail__label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dl-muted);
+}
+
+.dash-loc-trail__value {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--dl-slate);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Panels */
+.dash-loc-panel {
+  background: #fff;
+  border-radius: var(--dl-radius);
+  border: 1px solid #e8ecef;
+  padding: 1.35rem 1.5rem;
+  box-shadow: var(--dl-shadow);
+  height: 100%;
+}
+
+.dash-loc-panel--stack {
+  margin-bottom: 1rem;
+}
+
+.dash-loc-panel__head {
+  margin-bottom: 1rem;
+}
+
+.dash-loc-panel__head--row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.dash-loc-panel__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--dl-slate);
+  margin: 0;
+}
+
+.dash-loc-panel__sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  color: var(--dl-muted);
+}
+
+.dash-loc-link {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--dl-green);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.dash-loc-link:hover {
+  color: var(--dl-green-mid);
+}
+
+/* Advisory layers */
+.dash-loc-layers {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.dash-loc-layers__item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #94a3b8;
+  font-size: 0.88rem;
+}
+
+.dash-loc-layers__item i {
+  font-size: 1.1rem;
+}
+
+.dash-loc-layers__item.is-on {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  color: var(--dl-green-mid);
+  font-weight: 600;
+}
+
+.dash-loc-layers__state {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dash-loc-layers__item.is-on .dash-loc-layers__state {
+  color: #166534;
+}
+
+@media (max-width: 991.98px) {
+  .dash-loc-hero__inner {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-loc-hero__ring-wrap {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    text-align: left;
+  }
+
+  .dash-loc-ring {
+    margin: 0;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .dash-loc-hero {
+    padding: 1.35rem 1.25rem;
+  }
+
+  .dash-loc-trail__step {
+    flex: 1 1 100%;
+  }
+}

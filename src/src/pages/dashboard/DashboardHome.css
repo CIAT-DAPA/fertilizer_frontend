@@ -1,0 +1,45 @@
+
+.dash-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.dash-quick-card {
+  display: block;
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+  transition: transform 0.15s, box-shadow 0.15s;
+  border-left: 4px solid var(--qc, #2d6a4f);
+}
+
+.dash-quick-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  color: inherit;
+}
+
+.dash-quick-card__title {
+  display: block;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.dash-quick-card__desc {
+  display: block;
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 0.25rem;
+}
+
+.dash-quick-card__arrow {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  color: var(--qc);
+}

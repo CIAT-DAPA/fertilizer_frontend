@@ -1,0 +1,9 @@
+.dash-metrics__empty {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+}
+
+.dash-metrics__empty h3 {
+  margin-top: 1rem;
+  font-size: 1.15rem;
+}

@@ -1,60 +1,61 @@
-import CountryPartner from '../../components/country_partner/CountryPartner';
-//import './Partners.css'
-import React, { useState, useEffect } from "react";
-import Papa from "papaparse";
-import Footer from "../../components/footer/Footer";
-
-const URL_PARTNERS_DATA =
-    "https://raw.githubusercontent.com/CIAT-DAPA/fertilizer_frontend/develop/src/src/assets/partners/partners.csv";
+import React from 'react';
+import PartnerCard from '../../components/partner/PartnerCard';
+import { ETHIOPIA_PARTNERS, PARTNERS_INTRO } from '../../config/partnersConfig';
+import './Partners.css';
 
 function Partners() {
-    //Translation
-    //const [t, i18n] = useTranslation("global");
-    const [groupedPartners, setGroupedPartners] = useState({});
+  return (
+    <div className="partners-page">
+      <header className="partners-hero" aria-labelledby="partners-hero-title">
+        <div className="partners-hero__mesh" aria-hidden="true" />
+        <div className="partners-hero__inner">
+          <p className="partners-hero__eyebrow">
+            <i className="bi bi-people-fill" aria-hidden="true" />
+            Collaboration
+          </p>
+          <h1 id="partners-hero-title" className="partners-hero__title">
+            Our <span className="partners-hero__highlight">partners</span>
+          </h1>
+          <p className="partners-hero__text">{PARTNERS_INTRO}</p>
+          <div className="partners-hero__stats" aria-label="Partner summary">
+            <span className="partners-hero__stat">
+              <strong>{ETHIOPIA_PARTNERS.length}</strong> organizations
+            </span>
+            <span className="partners-hero__stat">
+              <strong>1</strong> country focus
+            </span>
+          </div>
+        </div>
+      </header>
 
+      <main className="partners-main">
+        <section className="partners-section" aria-labelledby="partners-ethiopia-title">
+          <div className="partners-section__head">
+            <h2 id="partners-ethiopia-title" className="partners-section__title">
+              <i className="bi bi-geo-alt-fill" aria-hidden="true" />
+              Ethiopia
+            </h2>
+            <p className="partners-section__sub">
+              National and international institutions supporting HaFAS
+            </p>
+          </div>
 
-    useEffect(() => {
-        Papa.parse(URL_PARTNERS_DATA, {
-            download: true,
-            header: true,
-            dynamicTyping: true,
-            complete: (results) => {
-                const grouped = results.data.reduce((acc, partner) => {
-                    const country = partner.Pais;
-                    if (!acc[country]) {
-                        acc[country] = [];
-                    }
-                    acc[country].push(partner);
-                    return acc;
-                }, {});
-                setGroupedPartners(grouped);
+          <ul className="partners-grid">
+            {ETHIOPIA_PARTNERS.map((partner, index) => (
+              <li key={partner.id}>
+                <PartnerCard partner={partner} index={index} />
+              </li>
+            ))}
+          </ul>
+        </section>
 
-            },
-        });
-    }, []);
-
-    return (
-        <div>
-            <div className="mb-4 text-white bg-title">
-                <div className="container pb-3 px-4 container-news" style={{}}>
-                    <div className="col-md-6 px-0">
-                        <h1 className="display-4">
-                            Partners
-                        </h1>
-                    </div>
-                </div>
-            </div>
-            <div className='px-5'>
-                {['Ethiopia']
-                    .map((country) => {
-                        if (!groupedPartners[country]) {
-                            return null;
-                        }
-                        return <CountryPartner key={country} country={country} partners={groupedPartners[country]} />
-                    })}
-            </div>
-        </div >
-    );
+        <p className="partners-footer-note">
+          Logos link to each organization&apos;s website. HaFAS is a collaborative initiative of the
+          Alliance of Bioversity International and CIAT with national and CGIAR partners.
+        </p>
+      </main>
+    </div>
+  );
 }
 
 export default Partners;

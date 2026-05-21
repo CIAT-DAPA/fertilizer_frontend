@@ -8,6 +8,7 @@ import './Home.css';
 import Map from '../../components/map/Map';
 import Configuration from "../../conf/Configuration";
 import GeoFeatures from '../../services/GeoFeatures';
+import { fetchCountries, matchCountryRecord } from '../../services/countryApiService';
 
 import { setReportInput } from '../../slices/reportSlice';
 
@@ -16,10 +17,22 @@ import { useSelector } from 'react-redux';
 import { useDispatch } from 'react-redux';
 const bbox = require('geojson-bbox');
 
+/** Serialize location tuple for <select value={…}> (matches option value string). */
+function tupleToSelectValue(arr) {
+  if (!arr || !Array.isArray(arr) || arr.length === 0) return '';
+  return arr.map((x) => (x != null ? String(x) : '')).join(',');
+}
+
+function isAdminSelectionComplete(formValues, forWoreda) {
+  if (!formValues.region || !formValues.zone || !formValues.woreda) return false;
+  if (forWoreda) return true;
+  return !!formValues.kebele;
+}
+
 function Home() {
     const [map_init, setMap_init] = React.useState({ center: [9.8088271, 38.0405962], zoom: 5.75 });
     const [selectsValues, setSelectsValues] = React.useState(null);
-    const [disabledSelect, setDisabledSelect] = React.useState({ z: true, w: true, k: true, b: true });
+    const [disabledSelect, setDisabledSelect] = React.useState({ z: true, w: true, k: true });
     const [geoJson, setGeoJson] = React.useState();
     const [forWoreda, setForWoreda] = React.useState(false);
     const [bounds, setBounds] = React.useState([[10, 33], [8.5, 48],])
@@ -31,7 +44,7 @@ function Home() {
     const { country, id } = useParams();
 
     const [formValues, setFormValues] = useState({
-        country: reportInput.country,
+        country: [country, id],
         type: "kebele",
         region: null,
         zone: null,
@@ -46,57 +59,180 @@ function Home() {
 
     const dispatch = useDispatch();
 
-    //initial load of the regions
+    /** Hydrate draft from Redux when route country changes. Committed state updates on "Advisory" only. */
     useEffect(() => {
-        setloading({ ...loading, r: "loading" })
-        axios.get(Configuration.get_url_api_base() + "adm1" + "/" + id)
-            .then(response => {
-                setSelectsValues({ ...selectsValues, regions: response.data })
-                setloading({ ...loading, r: "pending" })
+        if (!country || !id) return;
+        const rc = reportInput.country;
+        const sameCountry =
+            rc &&
+            (String(rc[1]) === String(id) || rc[0] === country);
+
+        if (sameCountry) {
+            setFormValues((prev) => ({
+                ...prev,
+                country: rc,
+                type: reportInput.type === 'woreda' ? 'woreda' : 'kebele',
+                region: reportInput.region,
+                zone: reportInput.zone,
+                woreda: reportInput.woreda,
+                kebele: reportInput.kebele,
+                ad_fertilizer: reportInput.ad_fertilizer != null ? reportInput.ad_fertilizer : prev.ad_fertilizer,
+                ad_aclimate: reportInput.ad_aclimate != null ? reportInput.ad_aclimate : prev.ad_aclimate,
+                ad_risk: reportInput.ad_risk != null ? reportInput.ad_risk : prev.ad_risk,
+                ad_optimal: reportInput.ad_optimal != null ? reportInput.ad_optimal : prev.ad_optimal,
+            }));
+            setForWoreda(reportInput.type === 'woreda');
+            const hasR = !!reportInput.region;
+            const hasZ = !!reportInput.zone;
+            const hasW = !!reportInput.woreda;
+            setDisabledSelect({
+                z: !hasR,
+                w: !hasZ,
+                k: !hasW,
             });
-    }, [!selectsValues])
-
-    // change of region
-    useEffect(() => {
-        if (formValues.region) {
-            setDisabledSelect({ z: true, w: true, k: true, b: true })
-            setloading({ ...loading, z: "loading" })
-            axios.get(Configuration.get_url_api_base() + "adm2/" + formValues.region[0])
-                .then(response => {
-                    setSelectsValues({ ...selectsValues, zones: response.data })
-                    setloading({ r: "uploaded", z: "pending", w: "pending", k: "pending" })
-                    setDisabledSelect({ z: false, w: true, k: true, b: true })
-                });
+        } else if (!rc) {
+            setFormValues((prev) => ({
+                ...prev,
+                country: [country, id],
+            }));
+        } else {
+            setFormValues((prev) => ({
+                ...prev,
+                country: [country, id],
+                type: 'kebele',
+                region: null,
+                zone: null,
+                woreda: null,
+                kebele: null,
+            }));
+            setForWoreda(false);
+            setDisabledSelect({ z: true, w: true, k: true });
         }
-    }, [formValues?.region])
+    }, [country, id, reportInput.country, reportInput.region, reportInput.zone, reportInput.woreda, reportInput.kebele, reportInput.type]);
 
-    //change of zone
+    // Initial load of regions for this country (resolve id against active API if route id is stale)
     useEffect(() => {
-        if (formValues.zone) {
-            setDisabledSelect({ ...disabledSelect, w: true, k: true, b: true });
-            setloading({ ...loading, w: "loading" })
-            axios.get(Configuration.get_url_api_base() + "adm3/" + formValues.zone[0])
-                .then(response => {
-                    setSelectsValues({ ...selectsValues, woredas: response.data })
-                    setloading({ ...loading, z: "uploaded", w: "pending", k: "pending" })
-                    setDisabledSelect({ ...disabledSelect, w: false, k: true, b: true });
-                });
-        }
-    }, [formValues.zone])
+        if (!id) return;
+        let cancelled = false;
+        const routeCountryName = country ? decodeURIComponent(country) : '';
 
-    // change of woreda
+        const loadRegionsForCountry = (countryId) =>
+            axios
+                .get(Configuration.get_url_api_base() + 'adm1/' + countryId)
+                .then((response) => ({
+                    countryId,
+                    regions: Array.isArray(response.data) ? response.data : [],
+                }));
+
+        setloading((prev) => ({ ...prev, r: 'loading' }));
+
+        loadRegionsForCountry(id)
+            .then(async ({ countryId, regions }) => {
+                if (cancelled) return;
+
+                if (regions.length > 0) {
+                    setSelectsValues((prev) => ({ ...(prev || {}), regions }));
+                    setloading((prev) => ({ ...prev, r: 'pending' }));
+                    return;
+                }
+
+                const countries = await fetchCountries();
+                if (cancelled) return;
+
+                const match =
+                    matchCountryRecord(countries, { id: countryId, name: routeCountryName }) ||
+                    matchCountryRecord(countries, { name: 'Ethiopia', iso2: 'ET' });
+
+                if (!match) {
+                    setloading((prev) => ({ ...prev, r: 'pending' }));
+                    return;
+                }
+
+                if (String(match.id) !== String(countryId)) {
+                    navigate(
+                        '/country_selected/' +
+                            encodeURIComponent(match.name) +
+                            '/' +
+                            match.id,
+                        { replace: true },
+                    );
+                    return;
+                }
+
+                setSelectsValues((prev) => ({ ...(prev || {}), regions: [] }));
+                setloading((prev) => ({ ...prev, r: 'pending' }));
+            })
+            .catch((err) => {
+                if (!cancelled) {
+                    console.error('Failed to load regions:', err);
+                    setloading((prev) => ({ ...prev, r: 'pending' }));
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [id, country, navigate]);
+
+    // Load zones when region changes
     useEffect(() => {
-        if (formValues.woreda) {
-            setDisabledSelect({ ...disabledSelect, k: true, b: true });
-            setloading({ ...loading, k: "loading" })
-            axios.get(Configuration.get_url_api_base() + "adm4/" + formValues.woreda[0])
-                .then(response => {
-                    setSelectsValues({ ...selectsValues, kebeles: response.data })
-                    setloading({ ...loading, k: "pending", w: "uploaded" })
-                    setDisabledSelect({ ...disabledSelect, k: false, b: true });
-                });
-        }
-    }, [formValues.woreda])
+        const regionId = formValues.region?.[0];
+        if (!regionId) return;
+        let cancelled = false;
+        setDisabledSelect({ z: true, w: true, k: true });
+        setloading((prev) => ({ ...prev, z: 'loading' }));
+        axios
+            .get(Configuration.get_url_api_base() + 'adm2/' + regionId)
+            .then((response) => {
+                if (cancelled) return;
+                setSelectsValues((prev) => ({ ...(prev || {}), zones: response.data }));
+                setloading({ r: 'uploaded', z: 'pending', w: 'pending', k: 'pending' });
+                setDisabledSelect({ z: false, w: true, k: true });
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [formValues.region?.[0]]);
+
+    // Load woredas when zone changes
+    useEffect(() => {
+        const zoneId = formValues.zone?.[0];
+        if (!zoneId) return;
+        let cancelled = false;
+        setDisabledSelect((d) => ({ ...d, w: true, k: true }));
+        setloading((prev) => ({ ...prev, w: 'loading' }));
+        axios
+            .get(Configuration.get_url_api_base() + 'adm3/' + zoneId)
+            .then((response) => {
+                if (cancelled) return;
+                setSelectsValues((prev) => ({ ...(prev || {}), woredas: response.data }));
+                setloading((prev) => ({ ...prev, z: 'uploaded', w: 'pending', k: 'pending' }));
+                setDisabledSelect((d) => ({ ...d, w: false, k: true }));
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [formValues.zone?.[0]]);
+
+    // Load kebeles when woreda changes
+    useEffect(() => {
+        const woredaId = formValues.woreda?.[0];
+        if (!woredaId) return;
+        let cancelled = false;
+        setDisabledSelect((d) => ({ ...d, k: true }));
+        setloading((prev) => ({ ...prev, k: 'loading' }));
+        axios
+            .get(Configuration.get_url_api_base() + 'adm4/' + woredaId)
+            .then((response) => {
+                if (cancelled) return;
+                setSelectsValues((prev) => ({ ...(prev || {}), kebeles: response.data }));
+                setloading((prev) => ({ ...prev, k: 'pending', w: 'uploaded' }));
+                setDisabledSelect((d) => ({ ...d, k: false }));
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [formValues.woreda?.[0]]);
 
     // status icons
     const icon = (statu) => {
@@ -185,15 +321,16 @@ function Home() {
 
     const setType = e => {
         setForWoreda(e);
-        if (e)
-            setFormValues({ ...formValues, type: "woreda", ad_aclimate: false })
-        else
-            setFormValues({ ...formValues, type: "kebele", ad_aclimate: true })
+        if (e) {
+            setFormValues({ ...formValues, type: "woreda", ad_aclimate: false, kebele: null });
+        } else {
+            setFormValues({ ...formValues, type: "kebele", ad_aclimate: true });
+        }
     }
 
     const verify = () => {
-        return (!(formValues.ad_aclimate || formValues.ad_fertilizer || formValues.ad_optimal || formValues.ad_risk)
-            || (forWoreda ? disabledSelect.k : disabledSelect.b))
+        const layersOk = formValues.ad_aclimate || formValues.ad_fertilizer || formValues.ad_optimal || formValues.ad_risk;
+        return !layersOk || !isAdminSelectionComplete(formValues, forWoreda);
     }
 
     return (
@@ -214,7 +351,7 @@ function Home() {
 
                         </div>
 
-                        <h1 className='font-link text-center'><b>HaFAS Agro-Advisory Platform - {country}</b></h1>
+                        <h1 className='font-link text-center'><b>HaFAS Advisory Platform - {country}</b></h1>
                         <p className='font-link-body'>
                         Harmonized Digital Fertilizer and Agronomic Solutions (HaFAS) is a nationally coordinated digital agriculture platform designed to deliver context-specific, climate-smart, and data-driven agronomic advisory services for Ethiopia’s diverse farming systems. By integrating advanced analytics, artificial intelligence (AI), geospatial data, soil intelligence, and local agronomic expertise, HaFAS transforms fertilizer recommendations into actionable insights that support improved productivity, soil health, and sustainable agricultural development. The platform is progressively integrating climate information, lime application guidance, and crop-specific agronomic recommendations to empower millions of farmers with scalable, farmer-centered digital advisory services across Ethiopia.
                         </p>
@@ -240,10 +377,10 @@ function Home() {
                             <div className='col-md-6 mt-3'>
                                 <b>Region</b>
                                 <div className='input-group'>
-                                    <select className="form-select" aria-label="Disabled select example" onChange={e => { setFormValues({ ...formValues, region: e.target.value.split(","), zone: null, woreda: null, kebele: null }); onChangeRegion(e.target.value.split(",")) }}>
-                                        <option key={"region default"} value={null}>Select a region</option>
+                                    <select className="form-select" aria-label="Region" value={tupleToSelectValue(formValues.region)} onChange={e => { const v = e.target.value; if (!v) { setFormValues({ ...formValues, region: null, zone: null, woreda: null, kebele: null }); setDisabledSelect({ z: true, w: true, k: true }); setSelectsValues((prev) => ({ ...prev, zones: null, woredas: null, kebeles: null })); return; } const parts = v.split(","); setFormValues({ ...formValues, region: parts, zone: null, woreda: null, kebele: null }); setDisabledSelect({ z: true, w: true, k: true }); setSelectsValues((prev) => ({ ...prev, zones: null, woredas: null, kebeles: null })); onChangeRegion(parts); }}>
+                                        <option key={"region default"} value="">Select a region</option>
                                         {
-                                            selectsValues?.regions && selectsValues?.regions.map((currentRegion) => <option key={currentRegion.id} value={[currentRegion.id, currentRegion.name, currentRegion.ext_id]}>{currentRegion.name}</option>)
+                                            selectsValues?.regions && selectsValues?.regions.map((currentRegion) => <option key={currentRegion.id} value={tupleToSelectValue([currentRegion.id, currentRegion.name, currentRegion.ext_id])}>{currentRegion.name}</option>)
                                         }
                                     </select>
                                     <span className='input-group-text'>
@@ -251,13 +388,14 @@ function Home() {
                                     </span>
                                 </div>
                             </div>
+                            {formValues.region && (
                             <div className='col-md-6 mt-3'>
                                 <b>Zone</b>
                                 <div className='input-group'>
-                                    <select className="form-select" aria-label="Disabled select example" disabled={disabledSelect.z} onChange={e => { setFormValues({ ...formValues, zone: e.target.value.split(","), woreda: null, kebele: null }); onChangeZone(e.target.value.split(",")) }}>
-                                        <option key={"zone default"} value={null}>Select a zone</option>
+                                    <select className="form-select" aria-label="Zone" disabled={disabledSelect.z} value={tupleToSelectValue(formValues.zone)} onChange={e => { const v = e.target.value; if (!v) { setFormValues({ ...formValues, zone: null, woreda: null, kebele: null }); setDisabledSelect((d) => ({ ...d, w: true, k: true })); setSelectsValues((prev) => ({ ...prev, woredas: null, kebeles: null })); return; } const parts = v.split(","); setFormValues({ ...formValues, zone: parts, woreda: null, kebele: null }); setDisabledSelect((d) => ({ ...d, w: true, k: true })); setSelectsValues((prev) => ({ ...prev, woredas: null, kebeles: null })); onChangeZone(parts); }}>
+                                        <option key={"zone default"} value="">Select a zone</option>
                                         {
-                                            selectsValues?.zones && selectsValues?.zones.map((currentZone) => <option key={currentZone.id} value={[currentZone.id, currentZone.name, currentZone.ext_id]}>{currentZone.name}</option>)
+                                            selectsValues?.zones && selectsValues?.zones.map((currentZone) => <option key={currentZone.id} value={tupleToSelectValue([currentZone.id, currentZone.name, currentZone.ext_id])}>{currentZone.name}</option>)
                                         }
                                     </select>
                                     <span className='input-group-text'>
@@ -265,15 +403,17 @@ function Home() {
                                     </span>
                                 </div>
                             </div>
+                            )}
+                            {formValues.zone && (
                             <div className='col-md-6 mt-3'>
                                 <b>Woreda</b>
                                 <div className='input-group'>
-                                    <select className="form-select" aria-label="Disabled select example" disabled={disabledSelect.w} onChange={e => { setFormValues({ ...formValues, woreda: e.target.value.split(","), kebele: null }); onChangeWoreda(e.target.value.split(",")) }}>
+                                    <select className="form-select" aria-label="Woreda" disabled={disabledSelect.w} value={tupleToSelectValue(formValues.woreda)} onChange={e => { const v = e.target.value; if (!v) { setFormValues({ ...formValues, woreda: null, kebele: null }); setDisabledSelect((d) => ({ ...d, k: true })); setSelectsValues((prev) => ({ ...prev, kebeles: null })); return; } const parts = v.split(","); setFormValues({ ...formValues, woreda: parts, kebele: null }); setDisabledSelect((d) => ({ ...d, k: true })); setSelectsValues((prev) => ({ ...prev, kebeles: null })); onChangeWoreda(parts); }}>
 
-                                        <option key={"woreda default"} value={null}>Select a woreda</option>
+                                        <option key={"woreda default"} value="">Select a woreda</option>
 
                                         {
-                                            selectsValues?.woredas && selectsValues?.woredas.map((currentWoreda) => <option key={currentWoreda.id} value={[currentWoreda.id, currentWoreda.name, currentWoreda.ext_id]}>{currentWoreda.name}</option>)
+                                            selectsValues?.woredas && selectsValues?.woredas.map((currentWoreda) => <option key={currentWoreda.id} value={tupleToSelectValue([currentWoreda.id, currentWoreda.name, currentWoreda.ext_id])}>{currentWoreda.name}</option>)
                                         }
                                     </select>
                                     <span className='input-group-text'>
@@ -282,15 +422,16 @@ function Home() {
                                 </div>
 
                             </div>
+                            )}
+                            {formValues.woreda && !forWoreda && (
                             <div className='col-md-6 mt-3'>
                                 <b>Kebele</b>
                                 <div className='input-group'>
-                                    <select className="form-select" aria-label="Disabled select example" disabled={disabledSelect.k || forWoreda} onChange={e => { setFormValues({ ...formValues, kebele: e.target.value.split(",") }); setDisabledSelect({ ...disabledSelect, b: false }); onChangeKebele(e.target.value.split(","), setloading({ ...loading, k: "uploaded" }))/*GeoFeatures.geojson("'"+e.target.value.split(",")[1]+"'").then((data_geo) => {setGeoJson(data_geo)});*/ }}>
-                                        {/*<select className="form-select" aria-label="Disabled select example" disabled={disabledSelect.k} onChange={e => { setFormValues({ ...formValues, kebele: e.target.value.split(",") }); setDisabledSelect({ ...disabledSelect, b: false });; onChangeKebele(e.target.value.split(",")) /*GeoFeatures.geojson("'"+e.target.value.split(",")[1]+"'").then((data_geo) => {setGeoJson(data_geo)}); }}> */}
-                                        <option key={"kebele default"} value={null}>Select a kebele</option>
+                                    <select className="form-select" aria-label="Kebele" disabled={disabledSelect.k} value={tupleToSelectValue(formValues.kebele)} onChange={e => { const v = e.target.value; if (!v) { setFormValues({ ...formValues, kebele: null }); return; } const parts = v.split(","); setFormValues({ ...formValues, kebele: parts }); onChangeKebele(parts, setloading({ ...loading, k: "uploaded" })); }}>
+                                        <option key={"kebele default"} value="">Select a kebele</option>
 
                                         {
-                                            selectsValues?.kebeles && selectsValues?.kebeles.map((currentKebele) => <option key={currentKebele.id} value={[currentKebele.id, currentKebele.name, currentKebele.ext_id, currentKebele.aclimate_id]}>{currentKebele.name}</option>)
+                                            selectsValues?.kebeles && selectsValues?.kebeles.map((currentKebele) => <option key={currentKebele.id} value={tupleToSelectValue([currentKebele.id, currentKebele.name, currentKebele.ext_id, currentKebele.aclimate_id])}>{currentKebele.name}</option>)
                                         }
                                     </select>
                                     <span className='input-group-text'>
@@ -299,6 +440,7 @@ function Home() {
                                 </div>
 
                             </div>
+                            )}
 
                             <div className="row mt-4">
                                 <div className='col-lg-6 col-md-12 col-sm-6'>
@@ -344,11 +486,11 @@ function Home() {
 
                         <div className='row'>
                             {
-                                (forWoreda ? disabledSelect.k : disabledSelect.b)
+                                !isAdminSelectionComplete(formValues, forWoreda)
                                 && <Alert />
                             }
                             <Link className='col d-flex justify-content-center mt-4 mb-4' to={forWoreda ? "/report_woreda" : "/report"} style={verify() ? { "pointerEvents": 'none' } : {}} >
-                                <button type="submit" className="btn btn-primary" disabled={verify()} onClick={e => { formValues.country=[country, id]; dispatch(setReportInput({ formValues })); }}>Advisory</button>
+                                <button type="submit" className="btn btn-primary" disabled={verify()} onClick={() => { dispatch(setReportInput({ formValues: { ...formValues, country: [country, id] } })); }}>Advisory</button>
                             </Link>
                         </div>
                     </form>

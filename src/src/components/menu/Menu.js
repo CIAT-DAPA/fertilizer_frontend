@@ -21,7 +21,7 @@ function Menu() {
             <nav className="navbar navbar-expand-md navbar-dark fixed-top bg-dark" style={{ zIndex: '2000' }}>
                 <div className="container-fluid">
                     <img src={logo_nextgen} width='40px' className='me-2' />
-                    <Link className="navbar-brand" to="/">HaFAS Agro-Advisory</Link>
+                    <Link className="navbar-brand" to="/">HaFAS Advisory</Link>
                     <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
                         <span className="navbar-toggler-icon"></span>
                     </button>
@@ -44,11 +44,11 @@ function Menu() {
                             }
                             {reportInput?.country ?
                                 <li className="nav-item dropdown">
-                                    <a className="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <a className="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                         Advisory Components
                                     </a>
                                     <div className="dropdown-menu" aria-labelledby="navbarDropdown">
-                                        <a className="dropdown-item dropdown-toggle" href="#" id="navbar2Dropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                        <a className="dropdown-item dropdown-toggle" href="#" id="navbar2Dropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                             Fertilizer
                                         </a>
                                         <div className="dropdown-menu" aria-labelledby="navbar2Dropdown">
@@ -69,7 +69,7 @@ function Menu() {
                                 </li>
                                 :
                                 <li className="nav-item dropdown">
-                                    <a className="nav-link disabled dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <a className="nav-link disabled dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                         Advisory Components
                                     </a>
                                     
@@ -83,11 +83,11 @@ function Menu() {
 
 
                             <li className="navbar-item dropdown">
-                                <a className="nav-link dropdown-toggle" href="#" id="navbar_api" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <a className="nav-link dropdown-toggle" href="#" id="navbar_api" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                     APIs
                                 </a>
                                 <div className="dropdown-menu" aria-labelledby="navbar_api">
-                                    <a className="dropdown-item" href="https://webapi.nextgenagroadvisory.com/" target="_blank">API NextGen</a>
+                                    <a className="dropdown-item" href="https://webapi.nextgenagroadvisory.com/apidocs/" target="_blank" rel="noopener noreferrer">HaFAS API</a>
                                     <a className="dropdown-item" href="https://webapi.aclimate.org/swagger/index.html" target="_blank">API Aclimate</a>
                                 </div>
 

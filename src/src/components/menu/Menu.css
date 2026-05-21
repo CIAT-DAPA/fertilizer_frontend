@@ -1,5 +1,254 @@
-.navbar-brand,
-.navbar-nav a {
-    font-family: 'EB Garamond', serif;
-    
+/* HaFAS top navigation — shared across dashboard shells */
+
+:root {
+  --hafas-header-height: 3rem;
+  --hafas-header-bg: linear-gradient(90deg, #0a1628 0%, #0f172a 35%, #1b4332 100%);
+}
+
+.hafas-header__bar {
+  z-index: 2000;
+  min-height: var(--hafas-header-height);
+  padding: 0 0.5rem;
+  background: var(--hafas-header-bg) !important;
+  border-bottom: 1px solid rgba(82, 183, 136, 0.25);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.35);
+}
+
+.hafas-header__container {
+  gap: 0.35rem;
+}
+
+.hafas-header__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.35rem 0.5rem 0.35rem 0;
+  margin-right: 0.5rem;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  color: #fff !important;
+}
+
+.hafas-header__brand:hover {
+  color: #d8f3dc !important;
+}
+
+.hafas-header__logo {
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(82, 183, 136, 0.45);
+}
+
+.hafas-header__brand-text {
+  white-space: nowrap;
+}
+
+.hafas-header__nav {
+  gap: 0.1rem;
+}
+
+.hafas-header__link {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.78) !important;
+  padding: 0.45rem 0.7rem !important;
+  border-radius: 8px;
+  transition: color 0.15s, background 0.15s;
+  border: none;
+  background: transparent;
+}
+
+.hafas-header__link:hover,
+.hafas-header__link:focus {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.hafas-header__link.active {
+  color: #fff !important;
+  background: rgba(82, 183, 136, 0.22);
+  box-shadow: inset 0 -2px 0 #52b788;
+}
+
+.hafas-header__link.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.hafas-header__dropdown {
+  margin-top: 0.35rem !important;
+  padding: 0.35rem;
+  border-radius: 12px;
+  border: 1px solid rgba(82, 183, 136, 0.3);
+  background: #0f172a !important;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.45);
+}
+
+.hafas-header__dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.88rem;
+  color: #e2e8f0;
+}
+
+.hafas-header__dropdown-item:hover {
+  background: rgba(82, 183, 136, 0.2);
+  color: #fff;
+}
+
+.hafas-header__actions {
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+.hafas-header__user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.75);
+  padding: 0.35rem 0.5rem;
+}
+
+.hafas-header__user-name {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hafas-header__user-meta {
+  opacity: 0.75;
+}
+
+.hafas-header__user-meta--ok {
+  color: #86efac;
+}
+
+.hafas-header__btn-primary {
+  background: linear-gradient(135deg, #52b788, #40916c);
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.35rem 1rem;
+}
+
+.hafas-header__btn-primary:hover {
+  color: #fff;
+  background: linear-gradient(135deg, #6bc99a, #52b788);
+  box-shadow: 0 4px 12px rgba(82, 183, 136, 0.4);
+}
+
+.hafas-header__btn-outline {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  background: transparent;
+}
+
+.hafas-header__btn-outline:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Log out — high contrast on dark header (overrides Bootstrap .btn) */
+.hafas-header__actions .hafas-header__btn-logout {
+  border: none;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.hafas-header__actions .hafas-header__btn-logout:hover,
+.hafas-header__actions .hafas-header__btn-logout:focus {
+  background: rgba(255, 255, 255, 0.28);
+  border: none;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.hafas-header__actions .hafas-header__btn-logout:active {
+  background: rgba(255, 255, 255, 0.28);
+  color: #0f172a;
+}
+
+.hafas-header__icon-btn {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.25rem 0.5rem;
+}
+
+.hafas-header__icon-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.hafas-header__toggler {
+  border-color: rgba(255, 255, 255, 0.35);
+  padding: 0.3rem 0.55rem;
+}
+
+.hafas-header__mode-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(149, 213, 178, 0.9) !important;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(82, 183, 136, 0.35);
+  background: rgba(82, 183, 136, 0.12);
+}
+
+/* Legacy serif brand on classic Menu only */
+.navbar-brand:not(.hafas-header__brand),
+.navbar-nav:not(.hafas-header__nav) a:not(.hafas-header__link) {
+  font-family: 'EB Garamond', serif;
+}
+
+@media (min-width: 992px) {
+  .hafas-header__actions {
+    padding-top: 0;
+  }
+
+  .hafas-header__nav .nav-item {
+    display: flex;
+    align-items: center;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .hafas-header__brand-text {
+    font-size: 0.95rem;
+  }
+
+  .hafas-header__collapse,
+  .navbar-collapse {
+    padding: 0.5rem 0 0.75rem;
+  }
+
+  .hafas-header__dropdown {
+    margin-left: 0.5rem;
+    border: none;
+    box-shadow: none;
+    background: transparent !important;
+  }
+
+  .hafas-header__dropdown-item {
+    padding-left: 1.25rem;
+  }
 }

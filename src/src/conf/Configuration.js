@@ -6,7 +6,9 @@ const FERTILIZER_WORSPACE = "fertilizer_et"
 const ACLIMATE_WORSPACE = "aclimate_et"
 //const NEXTGEN_API_BASE = "http://localhost:5000/"
 const NEXTGEN_API_BASE = "https://webapi.nextgenagroadvisory.com/"
+// Local API + legacy Ethiopia id: set REACT_APP_DEFAULT_COUNTRY_ID=6a09cb20197e7cc3a221b342 in .env
 const ACLIMATE_API_BASE = "https://webapi.aclimate.org/api/"
+//const ACLIMATE_API_BASE = "http://localhost:5001/api/"
 const CROP_RASTER_URL = NEXTGEN_API_BASE+"clip_raster";
 
 class Configuration {
