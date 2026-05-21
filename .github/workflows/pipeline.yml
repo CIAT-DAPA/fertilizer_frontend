@@ -12,7 +12,8 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 env:
   REACT_APP_GROQ_API: ${{ secrets.REACT_APP_GROQ_API }}
@@ -62,33 +63,32 @@ jobs:
 
       - name: Merge to all branches
         run: |
+          set -euo pipefail
           SOURCE_BRANCH="${{ github.ref_name }}"
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
-          
-          # Function to merge to a branch
+          # Use subject line only — multi-line commit messages break shell -m quoting
+          COMMIT_MSG=$(git log -1 --pretty=%s "${{ github.sha }}")
+
           merge_to_branch() {
             local TARGET_BRANCH=$1
-            if [ "$SOURCE_BRANCH" != "$TARGET_BRANCH" ]; then
-              echo "Merging $SOURCE_BRANCH into $TARGET_BRANCH..."
-              git checkout $TARGET_BRANCH
-              git pull origin $TARGET_BRANCH
-              git merge origin/$SOURCE_BRANCH --no-edit -m "Merge $SOURCE_BRANCH into $TARGET_BRANCH: $COMMIT_MSG"
-              git push origin $TARGET_BRANCH
-            else
+            if [ "$SOURCE_BRANCH" = "$TARGET_BRANCH" ]; then
               echo "Skipping merge to $TARGET_BRANCH (same as source branch)"
+              return 0
+            fi
+            echo "Merging $SOURCE_BRANCH into $TARGET_BRANCH..."
+            git fetch origin "$SOURCE_BRANCH" "$TARGET_BRANCH"
+            git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+            if git merge "origin/$SOURCE_BRANCH" --no-edit -m "Merge $SOURCE_BRANCH into $TARGET_BRANCH: $COMMIT_MSG"; then
+              git push origin "$TARGET_BRANCH"
+            else
+              echo "Merge conflict merging origin/$SOURCE_BRANCH into $TARGET_BRANCH"
+              git merge --abort || true
+              exit 1
             fi
           }
-          
-          # Merge to develop
+
           merge_to_branch develop
-          
-          # Merge to main
           merge_to_branch main
-          
-          # Merge to stage
           merge_to_branch stage
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN || secrets.PAT_TOKEN }}
 
 # ------- END MERGE PROCCESS -------- #
 
