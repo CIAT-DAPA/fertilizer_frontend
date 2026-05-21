@@ -1,0 +1,111 @@
+/* Modern dashboard theme — imported by AppShellLayout */
+@import './DashboardPage.css';
+
+:root {
+  --dash-surface-bg: linear-gradient(160deg, #f8fafc 0%, #e8f5e9 45%, #f1f5f9 100%);
+  --dash-surface-bg-solid: #f1f5f9;
+}
+
+.dash-shell--modern {
+  background: var(--dash-surface-bg);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+.dash-hero {
+  background: linear-gradient(135deg, #0f172a 0%, #1b4332 55%, #2d6a4f 100%);
+  color: #fff;
+  border-radius: 16px;
+  padding: 1.75rem 2rem;
+  margin-bottom: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(27, 67, 50, 0.25);
+}
+
+.dash-hero::after {
+  content: '';
+  position: absolute;
+  right: -40px;
+  top: -40px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dash-hero__eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #95d5b2;
+  margin-bottom: 0.35rem;
+}
+
+.dash-hero__title {
+  font-size: 1.65rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+
+.dash-hero__text {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.95rem;
+  max-width: 42rem;
+}
+
+.dash-progress {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  flex-wrap: wrap;
+}
+
+.dash-progress__step {
+  flex: 1;
+  min-width: 100px;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.75rem;
+  color: #94a3b8;
+  border: 1px solid transparent;
+}
+
+.dash-progress__step.done {
+  background: rgba(82, 183, 136, 0.2);
+  color: #d8f3dc;
+  border-color: rgba(82, 183, 136, 0.4);
+}
+
+.dash-progress__step.active {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-weight: 600;
+}
+
+.dash-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.dash-badge--ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.dash-badge--warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.dash-badge--muted {
+  background: #f1f5f9;
+  color: #64748b;
+}

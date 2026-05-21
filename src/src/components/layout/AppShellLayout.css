@@ -1,0 +1,91 @@
+:root {
+  --app-header-height: 3rem;
+  --app-sidebar-width: 260px;
+  --app-sidebar-collapsed: 72px;
+  --app-sidebar-offset: var(--app-sidebar-width);
+}
+
+/* One surface color for the whole app shell (no white body strip on the right) */
+html.app-shell-active {
+  overflow-x: hidden;
+}
+
+html.app-shell-active,
+body.app-shell-active {
+  min-height: 100%;
+  background: var(--dash-surface-bg, #f1f5f9);
+  background-attachment: fixed;
+}
+
+body.app-shell-active {
+  padding-top: var(--app-header-height);
+  overflow-x: hidden;
+}
+
+body.app-shell-active #root {
+  min-height: calc(100vh - var(--app-header-height));
+}
+
+.app-shell {
+  width: 100%;
+  min-height: calc(100vh - var(--app-header-height));
+  background: transparent;
+  overflow-x: hidden;
+}
+
+.app-shell__backdrop {
+  position: fixed;
+  inset: var(--app-header-height) 0 0 0;
+  z-index: 1050;
+  border: none;
+  background: rgba(15, 23, 42, 0.45);
+  cursor: pointer;
+}
+
+.app-shell__main {
+  box-sizing: border-box;
+  margin-left: var(--app-sidebar-offset);
+  width: auto;
+  min-height: calc(100vh - var(--app-header-height));
+  padding: 1rem 1.25rem 2rem;
+  transition: margin-left 0.25s ease;
+  min-width: 0;
+  background: transparent;
+  overflow-x: clip;
+}
+
+.app-shell__main--collapsed {
+  /* offset updated on .app-shell via inline style when sidebar collapses */
+}
+
+.app-shell__content {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.app-shell__main .card.text-center {
+  margin-top: 1.5rem;
+}
+
+/* Map / full-bleed advisory pages */
+.app-shell__content .leaflet-container,
+.app-shell__content [id^='map_'] {
+  max-width: 100%;
+}
+
+@media (max-width: 991.98px) {
+  .app-shell__main,
+  .app-shell__main--collapsed {
+    margin-left: 0 !important;
+    width: auto !important;
+    padding: 0.75rem 0.85rem 1.5rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  .app-shell__main {
+    padding: 1.25rem 1.75rem 2.5rem;
+  }
+}

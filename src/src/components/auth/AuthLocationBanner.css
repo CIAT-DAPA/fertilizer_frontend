@@ -1,0 +1,18 @@
+.auth-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  margin: 0 0 1rem;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #1b4332, #2d6a4f);
+  color: #fff;
+  box-sizing: border-box;
+}
+
+.auth-banner p {
+  opacity: 0.9;
+}
