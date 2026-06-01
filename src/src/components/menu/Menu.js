@@ -87,7 +87,7 @@ function Menu() {
                                     APIs
                                 </a>
                                 <div className="dropdown-menu" aria-labelledby="navbar_api">
-                                    <a className="dropdown-item" href="https://webapi.nextgenagroadvisory.com/apidocs/" target="_blank" rel="noopener noreferrer">HaFAS API</a>
+                                    <a className="dropdown-item" href="https://webapi.hafasadvisory.com/apidocs/" target="_blank" rel="noopener noreferrer">HaFAS API</a>
                                     <a className="dropdown-item" href="https://webapi.aclimate.org/swagger/index.html" target="_blank">API Aclimate</a>
                                 </div>
 

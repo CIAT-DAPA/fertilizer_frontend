@@ -4,7 +4,7 @@ import Configuration from '../conf/Configuration';
 /** Legacy Ethiopia id from local MongoDB (localhost:5000). */
 export const LEGACY_LOCAL_ETHIOPIA_ID = '6a09cb20197e7cc3a221b342';
 
-/** Ethiopia id on deployed NextGen API (https://webapi.nextgenagroadvisory.com/). */
+/** Ethiopia id on deployed NextGen API (https://webapi.hafasadvisory.com/). */
 export const PRODUCTION_ETHIOPIA_ID = '6499e7df9b53ecd65bbcf67e';
 
 let countriesCache = null;
