@@ -164,7 +164,7 @@ function Chatbot() {
 
     const loadAvailableLayers = async () => {
         try {
-            const response = await axios.get('https://webapi.nextgenagroadvisory.com/layers_fertilizer');
+            const response = await axios.get(`${Configuration.get_url_api_base()}layers_fertilizer`);
             if (response.data && response.data.layers) {
                 setAvailableLayers(response.data.layers.map(layer => layer.name));
             }
@@ -308,7 +308,7 @@ function Chatbot() {
 
 CRITICAL WARNING: You MUST NEVER generate or make up your own fertilizer recommendations or yield values. You are strictly forbidden from providing any numerical values, calculations, or recommendations that you generate yourself.
 
-ALL fertilizer recommendation values and yield values MUST come exclusively from the following endpoint (handled by the system): https://webapi.nextgenagroadvisory.com/coordinates/{layer}/{coorStr}/{date}
+ALL fertilizer recommendation values and yield values MUST come exclusively from the following endpoint (handled by the system): ${Configuration.get_url_api_base()}coordinates/{layer}/{coorStr}/{date}
 
 You are only allowed to present values that are returned by this specific API endpoint. If no data is available from the endpoint, you must clearly state that no data was found for that location/combination.
 
@@ -361,7 +361,7 @@ Ready to get started? Just tell me your crop and fertilizer type (or yield if yo
 IMPORTANT: Before providing a fertilizer recommendation, always analyze the user's latest message for intent and clarity.
 - If the message is unclear, off-topic, or not a valid fertilizer request (e.g., random words, greetings, or unrelated questions), do NOT provide a recommendation.
 - Instead, respond conversationally and ask the user to clarify their request or redirect them back to fertilizer advice.
-- Only provide a fertilizer recommendation or yield values if the user's intent is clear and relevant. Both fertilizer recommendation values and yield values are always retrieved from the following endpoint (handled by the system): https://webapi.nextgenagroadvisory.com/coordinates/{layer}/{coorStr}/{date}. You do not need to perform any calculations yourself; simply present the value as returned by the system, with the correct context and units.
+- Only provide a fertilizer recommendation or yield values if the user's intent is clear and relevant. Both fertilizer recommendation values and yield values are always retrieved from the following endpoint (handled by the system): ${Configuration.get_url_api_base()}coordinates/{layer}/{coorStr}/{date}. You do not need to perform any calculations yourself; simply present the value as returned by the system, with the correct context and units.
 
 SPECIAL INSTRUCTIONS FOR COORDINATES:
 - When asking for coordinates, always offer the map option naturally in your response
@@ -496,7 +496,7 @@ If user asks about other topics, provide general responses and redirect to ferti
             const date = "2024-07";
             
             const response = await axios.post(
-                `https://webapi.nextgenagroadvisory.com/coordinates/${layer}/${coorStr}/${date}`
+                `${Configuration.get_url_api_base()}coordinates/${layer}/${coorStr}/${date}`
             );
             
             return response.data;

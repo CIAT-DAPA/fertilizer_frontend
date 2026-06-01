@@ -5,7 +5,7 @@ import { useSelector } from 'react-redux';
 export const API_LINKS = [
   {
     label: 'HaFAS API',
-    href: 'https://webapi.nextgenagroadvisory.com/apidocs/',
+    href: 'https://webapi.hafasadvisory.com/apidocs/',
     icon: 'bi-braces',
   },
   {
