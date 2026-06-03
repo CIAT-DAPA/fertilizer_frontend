@@ -1,25 +1,38 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useSelector } from 'react-redux';
 import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader';
 import { advisoryQuickLinks } from '../../components/dashboard/dashboardNavConfig';
 import './DashboardAdvisories.css';
 
-const HIDDEN_ON_ADVISORY_HUB = new Set([
-  'Country & location',
-  'Wheat rust',
-  'Methodology',
-]);
+const HIDDEN_ON_ADVISORY_HUB = new Set(['Methodology', 'PDF report']);
+
+/** First items on the Advisory hub grid (others keep config order). */
+const ADVISORY_HUB_PRIORITY = ['Site fertilizer advisory', 'AI chatbot'];
+
+function sortAdvisoryHubLinks(links) {
+  return [...links].sort((a, b) => {
+    const rankA = ADVISORY_HUB_PRIORITY.indexOf(a.title);
+    const rankB = ADVISORY_HUB_PRIORITY.indexOf(b.title);
+    const orderA =
+      rankA === -1
+        ? ADVISORY_HUB_PRIORITY.length + advisoryQuickLinks.indexOf(a)
+        : rankA;
+    const orderB =
+      rankB === -1
+        ? ADVISORY_HUB_PRIORITY.length + advisoryQuickLinks.indexOf(b)
+        : rankB;
+    return orderA - orderB;
+  });
+}
 
 function DashboardAdvisories() {
-  const report = useSelector((state) => state.report);
-  const reportPath = report.type === 'woreda' ? '/report_woreda' : report.kebele ? '/report' : null;
-
-  const visibleLinks = advisoryQuickLinks.filter((item) => {
-    if (HIDDEN_ON_ADVISORY_HUB.has(item.title)) return false;
-    if (item.dynamicReport && !reportPath) return false;
-    return true;
-  });
+  const visibleLinks = useMemo(
+    () =>
+      sortAdvisoryHubLinks(
+        advisoryQuickLinks.filter((item) => !HIDDEN_ON_ADVISORY_HUB.has(item.title))
+      ),
+    []
+  );
 
   return (
     <div className="dash-page dash-advisories">
@@ -29,12 +42,9 @@ function DashboardAdvisories() {
       />
 
       <div className="row g-3">
-        {visibleLinks.map((item) => {
-          let path = item.path;
-          if (item.dynamicReport) path = reportPath;
-          return (
+        {visibleLinks.map((item) => (
             <div className="col-md-6 col-lg-4" key={item.title}>
-              <Link to={path} className="dash-adv-card h-100">
+              <Link to={item.path} className="dash-adv-card h-100">
                 <div className="dash-adv-card__bar" style={{ background: item.color }} />
                 <h3>{item.title}</h3>
                 <p>{item.description}</p>
@@ -43,8 +53,7 @@ function DashboardAdvisories() {
                 </span>
               </Link>
             </div>
-          );
-        })}
+        ))}
       </div>
     </div>
   );

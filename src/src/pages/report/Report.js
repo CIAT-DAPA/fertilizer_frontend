@@ -14,6 +14,7 @@ import Configuration from "../../conf/Configuration";
 import SelectFilters from '../../components/select_filters/SelectFilters';
 import Spinners from '../../components/loading/Spinners';
 import LoadingReport from "../../components/loading/LoadingReport";
+import { DEFAULT_SCENARIO, FALLBACK_SCENARIO } from '../../utils/scenarioDefaults';
 const bbox = require('geojson-bbox');
 
 function Report() {
@@ -27,6 +28,7 @@ function Report() {
     const [forecast, setForecast] = React.useState();
     const [opt_crops, setOptCrops] = React.useState([]);
     const [opt_scenarios, setOptScenarios] = React.useState(["normal", "above", "below"]);
+    const [scenario, setScenario] = React.useState(DEFAULT_SCENARIO);
     const [crop, setCrop] = React.useState();
     const [geoJson, setGeoJson] = React.useState();
     const [barChartData, setBarChartData] = React.useState();
@@ -44,9 +46,11 @@ function Report() {
                 if (forecast !== "2022-07") {
                     if (!opt_scenarios.includes("dominant")) {
                         setOptScenarios([...opt_scenarios, "dominant"])
+                        setScenario(DEFAULT_SCENARIO);
                     }
                 } else {
                     setOptScenarios(opt_scenarios.filter(filter => filter !== "dominant"))
+                    setScenario((current) => (current === DEFAULT_SCENARIO ? FALLBACK_SCENARIO : current));
                 }
 
                 const forecastFound = forecasts.find(prop => prop.date === forecast)
@@ -165,7 +169,7 @@ function Report() {
                         <Map
                             scenarios={opt_scenarios}
                             crop={crop}
-                            scenario="normal"
+                            scenario={scenario}
                             id={id}
                             init={map_init}
                             type={id}

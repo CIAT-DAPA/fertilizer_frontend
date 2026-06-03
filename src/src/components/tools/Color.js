@@ -55,6 +55,17 @@ class Color {
                              ? "#ffe699" : "#ffffff";
 
     }
+    get_dap_color(d) {
+        return d >= 200.0
+            ? "#1a5276"
+            : d >= 150.0 && d < 200.0
+            ? "#2874a6"
+            : d >= 100.0 && d < 150.0
+            ? "#5dade2"
+            : d >= 50.0 && d < 100.0
+            ? "#aed6f1"
+            : "#ffffff";
+    }
     get_nps_color(d){
         return d >= 150.0
                  ? "#206040" 
@@ -107,15 +118,18 @@ class Color {
             return this.get_urea_color(d);
         }
         else if (layer === geoserverLayers[4]){
-            return this.get_nps_color(d);
+            return this.get_dap_color(d);
         }
         else if (layer === geoserverLayers[5]){
-            return this.get_vcompost_color(d);
+            return this.get_nps_color(d);
         }
         else if (layer === geoserverLayers[6]){
-            return this.get_compost_color(d);
+            return this.get_vcompost_color(d);
         }
         else if (layer === geoserverLayers[7]){
+            return this.get_compost_color(d);
+        }
+        else if (layer === geoserverLayers[8]){
             return this.get_dominant_color(d);
         }
         else {

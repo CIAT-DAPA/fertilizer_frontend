@@ -8,15 +8,23 @@ import MapLegend from '../map_legend/MapLegend';
 import ZoomControlWithReset from '../map_zoom_reset/ZoomControlWithReset';
 import DrawControl from '../map_draw/DrawControl';
 import './Map.css';
+import { FALLBACK_SCENARIO } from '../../utils/scenarioDefaults';
 
 //For reset map view
 const ETHIOPIA_BOUNDS = [  [10, 30],  [8.5, 50],];
 
 const auxTableData = [];
-const geoserverLayers = ["optimal_nutrients_n", 
-        "optimal_nutrients_p", "yieldtypes_optimal", 
-        "urea_probabilistic", "nps_probabilistic", 
-        "vcompost_probabilistic", "compost_probabilistic", "dominant"];
+const geoserverLayers = [
+        "optimal_nutrients_n",
+        "optimal_nutrients_p",
+        "yieldtypes_optimal",
+        "urea_probabilistic",
+        "dap_probabilistic",
+        "nps_probabilistic",
+        "vcompost_probabilistic",
+        "compost_probabilistic",
+        "dominant",
+    ];
 
 //Current marker
 var marker = null;
@@ -25,7 +33,7 @@ function Map(props) {
 
     const [nutrients_yield, setNutrients_yield] = React.useState(["n", "p", "optimal"]);
     const [compost, setCompost] = React.useState(["compost", "vcompost"]);
-    const [fertilizer, setNutrients] = React.useState(["nps", "urea"]);
+    const [fertilizer, setNutrients] = React.useState(["dap", "nps", "urea"]);
     const [currentLayer, setCurrentLayer] = React.useState();
     const [warning, setWarning] = React.useState(false);
     const [messageWarning, setMessageWarning] = React.useState("")
@@ -36,6 +44,7 @@ function Map(props) {
     const [selectedFeature, setSelectedFeature] = React.useState(null);
 
     const { BaseLayer } = LayersControl;
+    const activeScenario = props.scenario || FALLBACK_SCENARIO;
     const icon = L.icon({iconSize: [25, 41],iconAnchor: [10, 41],popupAnchor: [2, -40],iconUrl: "https://unpkg.com/leaflet@1.7/dist/images/marker-icon.png",shadowUrl: "https://unpkg.com/leaflet@1.7/dist/images/marker-shadow.png"});
     const request = Configuration.get_raster_crop_url();
     let layerType;
@@ -43,6 +52,12 @@ function Map(props) {
     
 
     var paramIdFilter;
+
+    const toPositiveNumber = (featureInfo) => {
+        const raw = featureInfo?.features?.[0]?.properties?.GRAY_INDEX;
+        const value = Number(raw);
+        return Number.isFinite(value) && value > 0 ? Number(value.toFixed(2)) : null;
+    };
 
     React.useEffect(() => {
         
@@ -124,11 +139,23 @@ function Map(props) {
 
                         const popUpMessage = (layer_name.includes("optimal_nutrients")) ? "optimal nutrient amount: ": 
                         (layer_name.includes("yieldtypes")) ? "optimal yield amount: " : 
-                        (layer_name.includes(geoserverLayers[3]) || layer_name.includes(geoserverLayers[4])) ? "fertilizer amount: " : 
-                        (layer_name.includes(geoserverLayers[5])) ? "vermi-compost: " : 
-                        (layer_name.includes(geoserverLayers[6])) ? "compost: " : "" 
-                    
-                        const unitPopupMessage = popUpMessage===""?"": (layer_name.includes(geoserverLayers[5]) || layer_name.includes(geoserverLayers[6])) ? " ton/ha" : " kg/ha";
+                        (layer_name.includes(geoserverLayers[3]) ||
+                            layer_name.includes(geoserverLayers[4]) ||
+                            layer_name.includes(geoserverLayers[5]))
+                            ? "fertilizer amount: "
+                            : (layer_name.includes(geoserverLayers[6]))
+                                ? "vermi-compost: "
+                                : (layer_name.includes(geoserverLayers[7]))
+                                    ? "compost: "
+                                    : "";
+
+                        const unitPopupMessage =
+                            popUpMessage === ""
+                                ? ""
+                                : layer_name.includes(geoserverLayers[6]) ||
+                                  layer_name.includes(geoserverLayers[7])
+                                ? " ton/ha"
+                                : " kg/ha";
                         
                         if (props.type.includes("report")) {
                         
@@ -148,75 +175,105 @@ function Map(props) {
                             });
                         }else{
                             if((layer_name.includes(geoserverLayers[2])) || (layer_name.includes(geoserverLayers[1])) || (layer_name.includes(geoserverLayers[0]))){
-                                //Getting N data  	fertilizer_et:et_wheat_optimal_nutrients_n_normal 
-                                let nLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[0]+"_"+props.scenario
-                                GeoFeatures.get_value(nLayer,lat,lng, props.forecast).then((data)=>{
-                                    if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
-                                        auxTableData[0] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                        
-                                        //Getting P data
-                                        let pLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[1]+"_"+props.scenario
-                                        GeoFeatures.get_value(pLayer,lat,lng, props.forecast).then((data)=>{
-                                            if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
-                                                auxTableData[1] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                            }
-                                            let oLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[2]+"_"+props.scenario
-                                            GeoFeatures.get_value(oLayer,lat,lng, props.forecast).then((data)=>{
-                                                if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
-                                                    auxTableData[2] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                                }
-                                                marker = L.marker([lat, lng], { icon }).addTo(map)
-                                                    .bindPopup(`optimal N amount: ${auxTableData[0]} ${unitPopupMessage} <br/>
-                                                    optimal P amount: ${auxTableData[1]} ${unitPopupMessage}<br/>
-                                                    optimal yield amount: ${auxTableData[2]} ${unitPopupMessage}`)
-                                                    .openPopup();
-                                            });
-                                        });
-                                    }
+                                const nLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[0]+"_"+props.scenario
+                                const pLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[1]+"_"+props.scenario
+                                const oLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[2]+"_"+props.scenario
+
+                                Promise.all([
+                                    GeoFeatures.get_value(nLayer, lat, lng, props.forecast),
+                                    GeoFeatures.get_value(pLayer, lat, lng, props.forecast),
+                                    GeoFeatures.get_value(oLayer, lat, lng, props.forecast),
+                                ]).then(([nData, pData, oData]) => {
+                                    const nVal = toPositiveNumber(nData);
+                                    const pVal = toPositiveNumber(pData);
+                                    const oVal = toPositiveNumber(oData);
+
+                                    let html = "";
+                                    if (nVal != null) html += `optimal N amount: ${nVal} ${unitPopupMessage}<br/>`;
+                                    if (pVal != null) html += `optimal P amount: ${pVal} ${unitPopupMessage}<br/>`;
+                                    if (oVal != null) html += `optimal yield amount: ${oVal} ${unitPopupMessage}<br/>`;
+
+                                    if (!html) html = "No advisory here";
+
+                                    marker = L.marker([lat, lng], { icon }).addTo(map)
+                                        .bindPopup(html)
+                                        .openPopup();
                                 });
                             }
 
-                            if((layer_name.includes(geoserverLayers[3])) || (layer_name.includes(geoserverLayers[4]))){
-                                //Getting urea data  	fertilizer_et:et_wheat_optimal_nutrients_n_normal 
-                                let ureaLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[3]+"_"+props.scenario
-                                GeoFeatures.get_value(ureaLayer,lat,lng, props.forecast).then((data)=>{
-                                    if(data.features[0]?.properties.GRAY_INDEX.toFixed(2) > 0) {
-                                        auxTableData[3] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                    }
-                                    //Getting nps data
-                                    let npsLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[4]+"_"+props.scenario
-                                        GeoFeatures.get_value(npsLayer,lat,lng, props.forecast).then((data)=>{
-                                            if(data.features[0] && data.features[0]?.properties.GRAY_INDEX.toFixed(2) > 0) {
-                                                auxTableData[4] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                            }
-                                            marker = L.marker([lat, lng], { icon }).addTo(map)
-                                                .bindPopup(`fertilizer Urea amount: ${auxTableData[3]} ${unitPopupMessage} <br/>
-                                                fertilizer NPS amount: ${auxTableData[4]} ${unitPopupMessage}`)
-                                                .openPopup(); 
-                                        });
+                            if (
+                                layer_name.includes(geoserverLayers[3]) ||
+                                layer_name.includes(geoserverLayers[4]) ||
+                                layer_name.includes(geoserverLayers[5])
+                            ) {
+                                const ureaLayer =
+                                    "fertilizer_et:et_" +
+                                    props.crop +
+                                    "_" +
+                                    geoserverLayers[3] +
+                                    "_" +
+                                    props.scenario;
+                                const dapLayer =
+                                    "fertilizer_et:et_" +
+                                    props.crop +
+                                    "_" +
+                                    geoserverLayers[4] +
+                                    "_" +
+                                    props.scenario;
+                                const npsLayer =
+                                    "fertilizer_et:et_" +
+                                    props.crop +
+                                    "_" +
+                                    geoserverLayers[5] +
+                                    "_" +
+                                    props.scenario;
+
+                                Promise.all([
+                                    GeoFeatures.get_value(ureaLayer, lat, lng, props.forecast),
+                                    GeoFeatures.get_value(dapLayer, lat, lng, props.forecast),
+                                    GeoFeatures.get_value(npsLayer, lat, lng, props.forecast),
+                                ]).then(([ureaData, dapData, npsData]) => {
+                                    const ureaVal = toPositiveNumber(ureaData);
+                                    const dapVal = toPositiveNumber(dapData);
+                                    const npsVal = toPositiveNumber(npsData);
+
+                                    let html = "";
+                                    if (dapVal != null)
+                                        html += `fertilizer DAP amount: ${dapVal} ${unitPopupMessage}<br/>`;
+                                    if (npsVal != null)
+                                        html += `fertilizer NPS amount: ${npsVal} ${unitPopupMessage}<br/>`;
+                                    if (ureaVal != null)
+                                        html += `fertilizer Urea amount: ${ureaVal} ${unitPopupMessage}<br/>`;
+
+                                    if (!html) html = "No advisory here";
+
+                                    marker = L.marker([lat, lng], { icon })
+                                        .addTo(map)
+                                        .bindPopup(html)
+                                        .openPopup();
                                 });
                             }
 
-                            if((layer_name.includes(geoserverLayers[5])) || (layer_name.includes(geoserverLayers[6]))){
-                                //Getting vcompos data  	fertilizer_et:et_wheat_optimal_nutrients_n_normal 
-                                let nLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[5]+"_"+props.scenario
-                                GeoFeatures.get_value(nLayer,lat,lng, props.forecast).then((data)=>{
-                                    if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
-                                        auxTableData[5] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                    }
-                                    //Getting compos data
-                                    let pLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[6]+"_"+props.scenario
-                                    GeoFeatures.get_value(pLayer,lat,lng, props.forecast).then((data)=>{
-                                        if(data.features[0] && data.features[0].properties.GRAY_INDEX.toFixed(2) > 0) {
-                                            auxTableData[6] = data.features[0].properties.GRAY_INDEX.toFixed(2);
-                                        }
-                                        marker = L.marker([lat, lng], { icon }).addTo(map)
-                                            .bindPopup(`vermi-compost: ${auxTableData[5]} ${unitPopupMessage} <br/>
-                                            compost: ${auxTableData[6]} ${unitPopupMessage}`)
-                                            .openPopup();
-                                            
-                                    });
-                            
+                            if((layer_name.includes(geoserverLayers[6])) || (layer_name.includes(geoserverLayers[7]))){
+                                const vcompostLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[6]+"_"+props.scenario
+                                const compostLayer = "fertilizer_et:et_"+props.crop+"_"+geoserverLayers[7]+"_"+props.scenario
+
+                                Promise.all([
+                                    GeoFeatures.get_value(vcompostLayer, lat, lng, props.forecast),
+                                    GeoFeatures.get_value(compostLayer, lat, lng, props.forecast),
+                                ]).then(([vcompostData, compostData]) => {
+                                    const vcompostVal = toPositiveNumber(vcompostData);
+                                    const compostVal = toPositiveNumber(compostData);
+
+                                    let html = "";
+                                    if (vcompostVal != null) html += `vermi-compost: ${vcompostVal} ${unitPopupMessage}<br/>`;
+                                    if (compostVal != null) html += `compost: ${compostVal} ${unitPopupMessage}<br/>`;
+
+                                    if (!html) html = "No advisory here";
+
+                                    marker = L.marker([lat, lng], { icon }).addTo(map)
+                                        .bindPopup(html)
+                                        .openPopup();
                                 });
 
                             }
@@ -331,7 +388,9 @@ function Map(props) {
                     : props.type === "nps_urea" ?
                         <LayersControl position="topright" collapsed={false}>{
                             fertilizer.map((item) => {
-                                return <BaseLayer key={"nps_urea" + item} name={item} checked={item===lastSelected?true:false}>
+                                const layerLabel =
+                                    item === 'dap' ? 'DAP' : item.charAt(0).toUpperCase() + item.slice(1);
+                                return <BaseLayer key={"nps_urea" + item} name={layerLabel} checked={item===lastSelected?true:false}>
                                    
                                     <WMSTileLayer
                                         key={"fertilizer_et:et_" + props.crop + "_"+ item + "_probabilistic_" +props.scenario}
@@ -449,7 +508,7 @@ function Map(props) {
                     : props.type.includes("recommendation_report") ?
                         <LayersControl position="topright" collapsed={true}>
                             {props.scenarios.map(scenario => {
-                                return <BaseLayer key={scenario} name={scenario} checked={scenario === 'normal'} >
+                                return <BaseLayer key={scenario} name={scenario} checked={scenario === activeScenario} >
                                     <WMSTileLayer
                                         key={`fertilizer_et:et_${props.crop}_yieldtypes_optimal_${scenario}`}
                                         layers={`fertilizer_et:et_${props.crop}_yieldtypes_optimal_${scenario}`}
@@ -474,7 +533,7 @@ function Map(props) {
                         <LayersControl position="topright" collapsed={true}>
                             {fertilizer.map((item) => {
                                 return props.scenarios.map(scenario => {
-                                    return <BaseLayer key={`${item}_${scenario}`} name={`${item} ${scenario}`} checked={(item === "nps" && scenario === "normal")}>
+                                    return <BaseLayer key={`${item}_${scenario}`} name={`${item} ${scenario}`} checked={(item === "nps" && scenario === activeScenario)}>
 
                                         <WMSTileLayer
                                             key={"fertilizer_et:et_" + props.crop + "_" + item + "_probabilistic_" + scenario}
@@ -499,7 +558,7 @@ function Map(props) {
                         <LayersControl position="topright" collapsed={true}>
                             {compost.map((item) => {
                                 return props.scenarios.map(scenario => {
-                                    return <BaseLayer key={`${item}_${scenario}`}  name={`${item} ${scenario}`} checked={(item === "compost" && scenario === "normal")}>
+                                    return <BaseLayer key={`${item}_${scenario}`}  name={`${item} ${scenario}`} checked={(item === "compost" && scenario === activeScenario)}>
 
                                         <WMSTileLayer
                                             key={"fertilizer_et:et_" + props.crop + "_" + item + "_probabilistic_" + scenario}

@@ -8,6 +8,74 @@ import './Chatbot.css';
 
 // Groq API key is pulled from REACT_APP_GROQ_API environment variable
 
+const RECOMMENDATION_FERTILIZERS = ['dap', 'urea'];
+
+const pickRandom = (items) => items[Math.floor(Math.random() * items.length)];
+
+const emptyCollectedData = () => ({
+    crop: null,
+    coordinates: null,
+    farmSizeHa: null,
+});
+
+const formatCropName = (crop) => {
+    if (!crop) return '';
+    return crop.charAt(0).toUpperCase() + crop.slice(1).toLowerCase();
+};
+
+const extractFarmSizeFromText = (text) => {
+    const match = text.match(/(\d+(?:\.\d+)?)\s*(?:ha|hectare|hectares)\b/i);
+    return match ? parseFloat(match[1]) : null;
+};
+
+const scaleKgForFarm = (kgPerHa, farmHa) => {
+    if (kgPerHa == null || Number.isNaN(kgPerHa) || !farmHa) return null;
+    return Math.round(kgPerHa * farmHa);
+};
+
+const buildRecommendationMessage = ({ crop, farmHa, dapKg, ureaKg, expectedYieldKg }) => {
+    const cropLabel = formatCropName(crop);
+    const yieldStr =
+        expectedYieldKg != null ? expectedYieldKg.toLocaleString() : null;
+
+    const mainLines = [
+        `For your ${cropLabel} crop on ${farmHa} ha, apply ${dapKg} kg of DAP and ${ureaKg} kg of Urea.`,
+        `Here's your ${cropLabel} plan for ${farmHa} ha: ${dapKg} kg DAP and ${ureaKg} kg Urea.`,
+        `On ${farmHa} ha of ${cropLabel}, you'll need ${dapKg} kg DAP and ${ureaKg} kg Urea.`,
+    ];
+
+    const yieldLines = yieldStr
+        ? [
+              ` With this, the expected yield you can get is ${yieldStr} kg.`,
+              ` Applied well, you could reach about ${yieldStr} kg.`,
+              ` If you follow good field practices, expected yield is around ${yieldStr} kg.`,
+          ]
+        : [];
+
+    const agronomicBlocks = [
+        `As good agronomic practice, plant on time, prepare the land well, use correct spacing, control weeds early, apply fertilizer when there is enough moisture, and monitor pests and diseases regularly.`,
+        `To get the most from this recommendation, plant on time, prepare land well, keep proper spacing, control weeds early, apply fertilizer with adequate soil moisture, and watch for pests and diseases.`,
+        `I also advise: plant on time, good land preparation, correct plant spacing, early weed control, apply fertilizer when moisture is sufficient, and check crops regularly for pests and diseases.`,
+        `For best results, follow sound agronomy—timely planting, well-prepared soil, appropriate spacing, early weed management, fertilizer application with enough moisture, and regular pest and disease monitoring.`,
+        `Remember, alongside these fertilizer rates: timely planting, thorough land prep, correct spacing, early weed control, moist conditions when applying fertilizer, and regular scouting for pests and diseases.`,
+    ];
+
+    const closingQuestions = [
+        `Would you like a recommendation for another location or crop?`,
+        `Need the same advice for a different field or crop?`,
+        `Want me to check another crop or location for you?`,
+        `Shall we run another recommendation—different crop or coordinates?`,
+        `Happy to help with another farm size, crop, or location if you need one.`,
+    ];
+
+    let message = pickRandom(mainLines);
+    if (yieldLines.length) {
+        message += pickRandom(yieldLines);
+    }
+    message += `\n\n${pickRandom(agronomicBlocks)}\n\n${pickRandom(closingQuestions)}`;
+    return message;
+};
+
 function Chatbot() {
     const [messages, setMessages] = useState([]);
     const [inputMessage, setInputMessage] = useState('');
@@ -19,11 +87,7 @@ function Chatbot() {
     const [showMap, setShowMap] = useState(false);
     const [map, setMap] = useState(null);
     const [marker, setMarker] = useState(null);
-    const [collectedData, setCollectedData] = useState({
-        crop: null,
-        fertilizer: null,
-        coordinates: null
-    });
+    const [collectedData, setCollectedData] = useState(emptyCollectedData());
     const [isTyping, setIsTyping] = useState(false);
     const [chatStatus, setChatStatus] = useState('online');
     const [isProcessingFile, setIsProcessingFile] = useState(false);
@@ -32,6 +96,11 @@ function Chatbot() {
     const mapContainerRef = useRef(null);
     const inputRef = useRef(null);
     const fileInputRef = useRef(null);
+
+    useEffect(() => {
+        document.body.classList.add('chatbot-page-active');
+        return () => document.body.classList.remove('chatbot-page-active');
+    }, []);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -51,7 +120,7 @@ function Chatbot() {
         const welcomeMessage = {
             id: Date.now(),
             type: 'bot',
-            content: "Hello! 👋 I'm your AI fertilizer advisor. I can help you get personalized fertilizer recommendations for your crops and location. What would you like to know?",
+            content: "Hello! 👋 I'm your AI fertilizer advisor. Tell me your crop, farm size in hectares, and location — I'll recommend how much fertilizer to apply and your expected yield. What would you like to know?",
             timestamp: new Date(),
             showQuickActions: true
         };
@@ -199,37 +268,18 @@ function Chatbot() {
         return null;
     };
 
-    // Get available crops and fertilizers from layers
-    const getAvailableCropsAndFertilizers = () => {
+    // Get available crops from layers (recommendations always use DAP + Urea)
+    const getAvailableCrops = () => {
         const crops = new Set();
-        const fertilizers = new Set();
-        let hasYield = false;
-        
+
         availableLayers.forEach(layer => {
             const parsed = parseLayerName(layer);
-            if (parsed) {
+            if (parsed && parsed.fertilizer !== 'yieldtypes' && parsed.fertilizer !== 'yieldtypes_optimal') {
                 crops.add(parsed.crop);
-                // Check if yield is available (only yieldtypes_optimal_dominant)
-                if (parsed.fertilizer === 'yieldtypes_optimal' && parsed.scenario === 'dominant') {
-                    hasYield = true;
-                } else if (parsed.fertilizer !== 'yieldtypes' && parsed.fertilizer !== 'yieldtypes_optimal') {
-                    // Map 'n' to 'n (nitrogen)' and 'p' to 'p (phosphorus)' for display
-                    if (parsed.fertilizer === 'n') {
-                        fertilizers.add('nitrogen');
-                    } else if (parsed.fertilizer === 'p') {
-                        fertilizers.add('phosphorus');
-                    } else {
-                        fertilizers.add(parsed.fertilizer);
-                    }
-                }
             }
         });
-        
-        return {
-            crops: Array.from(crops).sort(),
-            fertilizers: Array.from(fertilizers).sort(),
-            hasYield: hasYield
-        };
+
+        return Array.from(crops).sort();
     };
 
     // Find the best matching layer based on crop and fertilizer
@@ -299,69 +349,51 @@ function Chatbot() {
                 };
             }
             
-            const { crops, fertilizers, hasYield } = getAvailableCropsAndFertilizers();
-            
-            const systemPrompt = `You are an expert in site specific Fertilizer recommendation. Your goal is to help users get fertilizer recommendations by collecting 3 pieces of information:
+            const crops = getAvailableCrops();
+
+            const systemPrompt = `You are an expert in site-specific fertilizer recommendation for Ethiopian farmers. Your goal is to collect exactly 3 pieces of information, then the system fetches data and builds the final recommendation message.
+
+REQUIRED INFORMATION (collect intelligently — ask only for what is still missing):
 1. Crop type
-2. Fertilizer type (or yield prediction if they need yield information)
-3. Location coordinates
+2. Farm size in hectares (ha)
+3. Location coordinates in Ethiopia
 
-CRITICAL WARNING: You MUST NEVER generate or make up your own fertilizer recommendations or yield values. You are strictly forbidden from providing any numerical values, calculations, or recommendations that you generate yourself.
+DO NOT ask the user to choose a fertilizer type. The system selects products automatically when it delivers the final recommendation.
 
-ALL fertilizer recommendation values and yield values MUST come exclusively from the following endpoint (handled by the system): ${Configuration.get_url_api_base()}coordinates/{layer}/{coorStr}/{date}
+CRITICAL — PRODUCT NAMES IN CONVERSATION:
+- While collecting information or chatting, NEVER mention specific fertilizer product names (DAP, Urea, NPS, compost, etc.). Use only general terms: "fertilizer", "fertilizer recommendations", "fertilizer amounts".
+- The system builds the final message with specific products and kg amounts; you do not repeat those names before that step.
+- ONLY if the user explicitly asks what fertilizer types are available (e.g. "which fertilizers do you recommend?"), you may say this advisor provides site-specific DAP and Urea amounts plus expected yield.
+- If the user names a product while requesting advice, acknowledge their request in general terms (e.g. "I'll get fertilizer recommendations for your crop") without repeating product names unless they asked what is available.
 
-You are only allowed to present values that are returned by this specific API endpoint. If no data is available from the endpoint, you must clearly state that no data was found for that location/combination.
-
-All fertilizer recommendations are given in kg/ha (kilograms per hectare), EXCEPT for compost and vcompost, which are given in ton/ha (tons per hectare). Please always include the correct unit in your responses when providing a recommendation.
-
-IMPORTANT: When presenting a fertilizer recommendation or yield value, you must always round off the value to the nearest integer according to mathematical rules. Present both the original value and the rounded value in your response. For example: "Your recommendation value is 42.7 kg/ha. After round off, the final recommendation is 43 kg/ha."
-
-LANGUAGE TONE: Use clear, professional, and contextually appropriate language that is relevant to agriculture and crop management. Avoid overly enthusiastic words like "thrilled", "fantastic", "amazing", "wonderful", or similar expressions. Instead, use informative, engaging, and professional language that is appropriate for agricultural advisory context. Be helpful and friendly, but maintain a professional tone suitable for agricultural recommendations.
+CRITICAL: You MUST NEVER invent fertilizer amounts, yield values, or totals. The system fetches kg/ha from the API and multiplies by farm size. You only collect missing fields and converse naturally.
 
 Available crops: ${crops.join(', ')}
-Available fertilizers: ${fertilizers.join(', ')}
-${hasYield ? 'Yield prediction is also available.' : ''}
 
-CRITICAL: When asking users to specify fertilizer type, you MUST distinguish between fertilizers and yield prediction. Do NOT list yield as a fertilizer option. Instead, mention it separately. For example, say: "You can choose from: [list of fertilizers], or if you need yield prediction you can choose yield."
+When the user gives farm size, extract a numeric hectares value (e.g. "2 ha", "1.5 hectares", "farm is 3ha"). Store as a number in farm_size_ha.
 
-IMPORTANT: The fertilizer type 'n' or 'nitrogen' corresponds to 'optimal_nutrients_n' in the data, and 'p' or 'phosphorus' corresponds to 'optimal_nutrients_p'. Users may refer to these as 'n', 'nitrogen', 'p', or 'phosphorus'. Please map user requests for 'n' or 'nitrogen' to 'optimal_nutrients_n', and 'p' or 'phosphorus' to 'optimal_nutrients_p' when matching layers.
+When all three fields are present (crop, farm_size_ha, coordinates), set next_action to "get_recommendation". Do not ask for fertilizer type.
 
-IMPORTANT: For compost and vcompost, the recommendation unit is ton/ha (tons per hectare). Always mention this unit in your response when providing compost or vcompost recommendations.
-
-IMPORTANT: For yield value requests, users may refer to yield using phrases such as 'yield', 'yield value', 'optimal yield', 'best yield', 'yield prediction', or similar wording. You must intelligently identify these intents and map them to 'yield' when extracting data. The system will handle the technical layer matching internally. When providing a recommendation for this, clearly state it as the optimal yield (not a fertilizer recommendation) and specify the unit as kg/ha. Always use the word "yield" when communicating with users, never use technical terms like "yieldtypes" or "yieldtypes_optimal".
-
-REMEMBER: You are a data presenter, not a calculator. You can only present values that come from the API endpoint. Never invent, estimate, or calculate values yourself, except for rounding off the value to the nearest integer as instructed above.
+LANGUAGE TONE: Clear, professional, agriculture-appropriate. Avoid words like "thrilled", "fantastic", or "amazing".
 
 Current collected data: ${JSON.stringify(collectedData)}
 
-CRITICAL: You must respond with ONLY ONE valid JSON object. No text before or after. No multiple JSON objects. Only return this single JSON object:
+CRITICAL: Respond with ONLY ONE valid JSON object:
 
-{"response":"Your conversational response to the user","extracted_data":{"crop":"extracted crop or null","fertilizer":"extracted fertilizer or null","coordinates":"extracted coordinates or null"},"missing_data":["list of missing data points"],"next_action":"what to do next (collect_data, get_recommendation, show_map, etc)"}
+{"response":"Your conversational response","extracted_data":{"crop":"extracted crop or null","coordinates":"lat,lon or null","farm_size_ha":number or null},"missing_data":["crop","farm_size_ha","coordinates"],"next_action":"collect_data|get_recommendation|show_map"}
 
 SPECIAL INSTRUCTIONS FOR "HOW DOES THE BOT WORK?":
-If the user asks "How does the bot work?" or similar questions about how to use the chatbot, provide a comprehensive guide like this:
+If the user asks how the bot works, explain:
 
-"I'm your AI fertilizer advisor! Here's how I work to get you personalized fertilizer recommendations:
+"I provide site-specific fertilizer recommendations and expected yield for your farm. I need three things:
 
-I need 3 things to provide fertilizer recommendations:
+🌾 Crop — e.g. ${crops.slice(0, 3).join(', ')}${crops.length > 3 ? ', and more' : ''}
+📐 Farm size — your area in hectares (ha)
+📍 Location — coordinates in Ethiopia, or I can show you a map
 
-🌾 Crop Type: Tell me what crop you're growing
-Available crops: ${crops.join(', ')}
+I'll calculate fertilizer amounts for your whole farm and your expected harvest. Specific products and kg totals appear in the final recommendation."
 
-🌱 Fertilizer Type: Specify which fertilizer you need
-Available fertilizers: ${fertilizers.join(', ')}
-${hasYield ? '\n📊 Yield Prediction: If you need yield prediction, you can choose: yield' : ''}
-
-📍 Location: Provide your coordinates in Ethiopia (latitude, longitude) or I can help you find them on a map!
-
-I'll then analyze your specific location's soil, climate, and crop needs to give you the perfect recommendation!
-
-Ready to get started? Just tell me your crop and fertilizer type (or yield if you need yield prediction)! 🚀"
-
-IMPORTANT: Before providing a fertilizer recommendation, always analyze the user's latest message for intent and clarity.
-- If the message is unclear, off-topic, or not a valid fertilizer request (e.g., random words, greetings, or unrelated questions), do NOT provide a recommendation.
-- Instead, respond conversationally and ask the user to clarify their request or redirect them back to fertilizer advice.
-- Only provide a fertilizer recommendation or yield values if the user's intent is clear and relevant. Both fertilizer recommendation values and yield values are always retrieved from the following endpoint (handled by the system): ${Configuration.get_url_api_base()}coordinates/{layer}/{coorStr}/{date}. You do not need to perform any calculations yourself; simply present the value as returned by the system, with the correct context and units.
+IMPORTANT: Before triggering a recommendation, ensure intent is clear. Greetings and off-topic messages should get a friendly redirect, not next_action get_recommendation.
 
 SPECIAL INSTRUCTIONS FOR COORDINATES:
 - When asking for coordinates, always offer the map option naturally in your response
@@ -493,7 +525,7 @@ If user asks about other topics, provide general responses and redirect to ferti
         try {
             const coorData = [{ lat: parseFloat(lat), lon: parseFloat(lon) }];
             const coorStr = JSON.stringify(coorData);
-            const date = "2024-07";
+            const date = "2025-07";
             
             const response = await axios.post(
                 `${Configuration.get_url_api_base()}coordinates/${layer}/${coorStr}/${date}`
@@ -530,43 +562,32 @@ Please provide a helpful, conversational response that explains they need to cli
         };
         setCollectedData(updatedData);
 
-        // Check what data is missing and ask for it intelligently
         const missingData = [];
         if (!updatedData.crop) missingData.push('crop');
-        if (!updatedData.fertilizer) missingData.push('fertilizer');
+        if (!updatedData.farmSizeHa) missingData.push('farm_size_ha');
 
         if (missingData.length === 0) {
-            // All data is available, get recommendation
-            await getRecommendationWithData(updatedData);
+            await getCombinedRecommendation(updatedData);
         } else {
-            // Ask for missing data
-            const { crops, fertilizers, hasYield } = getAvailableCropsAndFertilizers();
-            
+            const crops = getAvailableCrops();
+
             let missingDataPrompt = '';
             if (missingData.length === 2) {
-                // Both crop and fertilizer are missing
-                missingDataPrompt = `The user selected their location (${coordinates.lat}, ${coordinates.lon}) but hasn't provided their crop and fertilizer type yet.
+                missingDataPrompt = `The user selected location (${coordinates.lat}, ${coordinates.lon}) but has not given crop or farm size (hectares).
 
 Available crops: ${crops.join(', ')}
-Available fertilizers: ${fertilizers.join(', ')}
-${hasYield ? 'Yield prediction is also available.' : ''}
 
-Please provide a helpful, conversational response that acknowledges their location selection and asks them to provide both their crop and fertilizer type (or yield if they need yield prediction). When listing options, distinguish between fertilizers and yield. For example: "You can choose from: [list of fertilizers], or if you need yield prediction you can choose yield." Give examples of how they can phrase their request.`;
+Ask for crop and farm size in ha. Do not ask for fertilizer type. Use only the word "fertilizer" — never say DAP, Urea, or other product names. Plain text only, no markdown.`;
             } else if (missingData.includes('crop')) {
-                // Only crop is missing
-                missingDataPrompt = `The user selected their location (${coordinates.lat}, ${coordinates.lon}) and provided fertilizer type "${updatedData.fertilizer}" but hasn't specified their crop yet.
+                missingDataPrompt = `The user selected location (${coordinates.lat}, ${coordinates.lon}) and farm size ${updatedData.farmSizeHa} ha but not crop.
 
 Available crops: ${crops.join(', ')}
 
-Please provide a helpful, conversational response that acknowledges their location and fertilizer selection, and asks them to specify which crop they want fertilizer recommendations for.`;
-            } else if (missingData.includes('fertilizer')) {
-                // Only fertilizer is missing
-                missingDataPrompt = `The user selected their location (${coordinates.lat}, ${coordinates.lon}) and provided crop "${updatedData.crop}" but hasn't specified their fertilizer type yet.
+Ask which crop they grow. Plain text only.`;
+            } else if (missingData.includes('farm_size_ha')) {
+                missingDataPrompt = `The user selected location (${coordinates.lat}, ${coordinates.lon}) and crop "${updatedData.crop}" but not farm size.
 
-Available fertilizers: ${fertilizers.join(', ')}
-${hasYield ? 'Yield prediction is also available.' : ''}
-
-Please provide a helpful, conversational response that acknowledges their location and crop selection, and asks them to specify which fertilizer type they want recommendations for. When listing options, distinguish between fertilizers and yield. For example: "You can choose from: [list of fertilizers], or if you need yield prediction you can choose yield."`;
+Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fertilizer" — never product names like DAP or Urea. Plain text only.`;
             }
 
             const botResponse = await sendMessageToGroq(missingDataPrompt);
@@ -583,121 +604,119 @@ Please provide a helpful, conversational response that acknowledges their locati
         }
     };
 
-    const getRecommendationWithData = async (data) => {
-        const matchingLayer = findMatchingLayer(data.crop, data.fertilizer);
-        
-        if (!matchingLayer) {
-            const availableCombinations = availableLayers.map(layer => {
-                const parsed = parseLayerName(layer);
-                return parsed ? `${parsed.crop} + ${parsed.fertilizer}` : layer;
-            }).filter((item, index, arr) => arr.indexOf(item) === index);
-            
-            const errorPrompt = `The user requested ${data.crop} with ${data.fertilizer} fertilizer, but this combination is not available. 
+    const getApiValue = (apiResponse) => {
+        if (apiResponse && apiResponse.length > 0 && apiResponse[0].value != null) {
+            return parseFloat(apiResponse[0].value);
+        }
+        return null;
+    };
 
-Available combinations are:
-${availableCombinations.join('\n')}
-
-Please provide a helpful, conversational response that explains this combination isn't available and suggests alternative crops or fertilizers they could try. Do not use any markdown formatting like ** or * - just plain text.`;
-            
-            const errorResponse = await sendMessageToGroq(errorPrompt);
-            const errorMessage = {
+    const getCombinedRecommendation = async (data) => {
+        const farmHa = parseFloat(data.farmSizeHa);
+        if (!farmHa || farmHa <= 0) {
+            const botMessage = {
                 id: Date.now() + 1,
                 type: 'bot',
-                content: errorResponse.response || errorResponse,
+                content: 'Please tell me your farm size in hectares (for example, "2 ha" or "1.5 hectares") so I can calculate fertilizer amounts for your field.',
                 timestamp: new Date()
             };
-            setMessages(prev => [...prev, errorMessage]);
-            setCurrentStep('initial');
-            setCollectedData({ crop: null, fertilizer: null, coordinates: null });
+            setMessages(prev => [...prev, botMessage]);
+            setCurrentStep('collecting_data');
             return;
         }
 
-        setSelectedLayer(matchingLayer);
-        const parsed = parseLayerName(matchingLayer);
-        
-        // Generate getting recommendation message
-        const gettingRecommendationPrompt = `The user is getting a ${parsed.fertilizer === 'yieldtypes_optimal' ? 'yield value' : 'fertilizer recommendation'} for:
-Crop: ${parsed.crop}
-${parsed.fertilizer === 'yieldtypes_optimal' ? '' : `Fertilizer: ${parsed.fertilizer}`}
-Location: ${data.coordinates}
+        const missingLayers = RECOMMENDATION_FERTILIZERS.filter(
+            (f) => !findMatchingLayer(data.crop, f)
+        );
 
-Please provide a simple, conversational response that acknowledges we're getting their ${parsed.fertilizer === 'yieldtypes_optimal' ? 'yield value' : 'fertilizer recommendation'} and asks them to wait. Include the crop${parsed.fertilizer === 'yieldtypes_optimal' ? '' : ', fertilizer,'} and location information naturally in the response. Do not use any markdown formatting like ** or * - just plain text.`;
-        
-        const botResponse = await sendMessageToGroq(gettingRecommendationPrompt);
-        const botMessage = {
+        if (missingLayers.length > 0) {
+            const crops = getAvailableCrops();
+            const botMessage = {
+                id: Date.now() + 1,
+                type: 'bot',
+                content: `I could not find fertilizer data for ${formatCropName(data.crop)} at this time. Available crops include: ${crops.join(', ')}. Please try another crop or contact support if you believe this crop should be supported.`,
+                timestamp: new Date()
+            };
+            setMessages(prev => [...prev, botMessage]);
+            setCurrentStep('initial');
+            setCollectedData(emptyCollectedData());
+            return;
+        }
+
+        const dapLayer = findMatchingLayer(data.crop, 'dap');
+        const ureaLayer = findMatchingLayer(data.crop, 'urea');
+        const yieldLayer = findMatchingLayer(data.crop, 'yield');
+
+        const waitingMessage = {
             id: Date.now(),
             type: 'bot',
-            content: botResponse.response || botResponse,
+            content: `Getting fertilizer and yield recommendations for your ${formatCropName(data.crop)} on ${farmHa} ha at ${data.coordinates}…`,
             timestamp: new Date()
         };
-
-        setMessages(prev => [...prev, botMessage]);
+        setMessages(prev => [...prev, waitingMessage]);
         setShowMap(false);
         setIsLoading(true);
 
         try {
-            const [lat, lon] = data.coordinates.split(',');
-            const recommendation = await getFertilizerRecommendation(matchingLayer, lat, lon);
-            
-            let resultMessage = '';
-            if (recommendation && recommendation.length > 0 && recommendation[0].value) {
-                if (parsed.fertilizer === 'yieldtypes_optimal') {
-                    // Yield value response
-                    const successPrompt = `The user received a successful yield value:
-Crop: ${parsed.crop}
-Location: ${data.coordinates}
-Yield Value: ${recommendation[0].value}
+            const [lat, lon] = data.coordinates.split(',').map((s) => s.trim());
 
-Please provide a clear, professional, and contextually appropriate response that presents the yield value information. Use language that is relevant to agriculture and crop management. Avoid overly enthusiastic words like "thrilled", "fantastic", "amazing", or similar expressions. Instead, use clear, informative, and engaging language that is appropriate for agricultural advisory context.
+            const [dapResponse, ureaResponse, yieldResponse] = await Promise.all([
+                getFertilizerRecommendation(dapLayer, lat, lon),
+                getFertilizerRecommendation(ureaLayer, lat, lon),
+                yieldLayer
+                    ? getFertilizerRecommendation(yieldLayer, lat, lon)
+                    : Promise.resolve(null),
+            ]);
 
-Include all the above information naturally. Make sure to clearly state this is a yield value (not a fertilizer recommendation) and specify the unit as kg/ha. Also ask if there's anything else they'd like to know about yield or fertilizers. Do not use any markdown formatting like ** or * - just plain text.`;
-                    resultMessage = await sendMessageToGroq(successPrompt);
-                } else {
-                    // Fertilizer recommendation response
-                    const successPrompt = `The user received a successful fertilizer recommendation:
-Crop: ${parsed.crop}
-Fertilizer: ${parsed.fertilizer}
-Location: ${data.coordinates}
-Recommendation Value: ${recommendation[0].value}
+            const dapPerHa = getApiValue(dapResponse);
+            const ureaPerHa = getApiValue(ureaResponse);
+            const yieldPerHa = yieldResponse ? getApiValue(yieldResponse) : null;
 
-Please provide a clear, professional, and contextually appropriate response that presents the fertilizer recommendation information. Use language that is relevant to agriculture and crop management. Avoid overly enthusiastic words like "thrilled", "fantastic", "amazing", or similar expressions. Instead, use clear, informative, and engaging language that is appropriate for agricultural advisory context.
-
-Include all the above information naturally. Also ask if there's anything else they'd like to know about fertilizers. Do not use any markdown formatting like ** or * - just plain text.`;
-                    resultMessage = await sendMessageToGroq(successPrompt);
-                }
-            } else {
-                const noDataPrompt = `The user requested fertilizer data for location ${data.coordinates} but no data was found for this location. 
-
-Please provide a helpful, conversational response that acknowledges no data was found and suggests trying with a different location. Do not use any markdown formatting like ** or * - just plain text.`;
-                
-                resultMessage = await sendMessageToGroq(noDataPrompt);
+            if (dapPerHa == null || ureaPerHa == null) {
+                const botMessage = {
+                    id: Date.now() + 1,
+                    type: 'bot',
+                    content: `No fertilizer data was found for ${formatCropName(data.crop)} at ${data.coordinates}. Please try a different location within Ethiopia or check your coordinates.`,
+                    timestamp: new Date()
+                };
+                setMessages(prev => [...prev, botMessage]);
+                return;
             }
+
+            const dapKg = scaleKgForFarm(dapPerHa, farmHa);
+            const ureaKg = scaleKgForFarm(ureaPerHa, farmHa);
+            const expectedYieldKg =
+                yieldPerHa != null ? scaleKgForFarm(yieldPerHa, farmHa) : null;
+
+            setSelectedLayer(dapLayer);
+
+            const resultContent = buildRecommendationMessage({
+                crop: data.crop,
+                farmHa,
+                dapKg,
+                ureaKg,
+                expectedYieldKg,
+            });
 
             const resultBotMessage = {
                 id: Date.now() + 1,
                 type: 'bot',
-                content: resultMessage.response || resultMessage,
+                content: resultContent,
                 timestamp: new Date()
             };
-
             setMessages(prev => [...prev, resultBotMessage]);
         } catch (error) {
-            const apiErrorPrompt = `There was an error retrieving the fertilizer recommendation for location ${data.coordinates}. 
-
-Please provide a helpful, conversational response that acknowledges the error and suggests checking coordinates or trying again. Do not use any markdown formatting like ** or * - just plain text.`;
-            
-            const errorResponse = await sendMessageToGroq(apiErrorPrompt);
             const errorMessage = {
                 id: Date.now() + 1,
                 type: 'bot',
-                content: errorResponse.response || errorResponse,
+                content: `There was an error retrieving recommendations for ${data.coordinates}. Please check your coordinates and try again.`,
                 timestamp: new Date()
             };
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
             setCurrentStep('initial');
-            setCollectedData({ crop: null, fertilizer: null, coordinates: null });
+            setCollectedData(emptyCollectedData());
         }
     };
 
@@ -772,41 +791,57 @@ Please provide a helpful, conversational response that acknowledges the error an
         }
     };
 
+    const normalizeCsvHeader = (header) =>
+        header.trim().toLowerCase().replace(/\s+/g, ' ');
+
+    const findCsvColumnIndex = (headers, candidates) => {
+        const normalized = headers.map(normalizeCsvHeader);
+        for (const candidate of candidates) {
+            const idx = normalized.findIndex(
+                (h) =>
+                    h === candidate ||
+                    h.replace(/\s/g, '') === candidate.replace(/\s/g, '') ||
+                    h.includes(candidate.replace(/\s/g, ''))
+            );
+            if (idx !== -1) return idx;
+        }
+        return -1;
+    };
+
     const parseCSVFile = (file) => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
                     const csv = e.target.result;
-                    const lines = csv.split('\n').filter(line => line.trim());
-                    
+                    const lines = csv.split('\n').filter((line) => line.trim());
+
                     if (lines.length < 2) {
                         throw new Error('CSV file must have at least a header row and one data row');
                     }
 
-                    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-                    const requiredHeaders = ['no', 'crop type', 'fertilizer type', 'latitude', 'longitude'];
-                    
-                    // Check if all required headers are present
-                    const missingHeaders = requiredHeaders.filter(header => 
-                        !headers.some(h => h.includes(header.replace(' ', '')) || h === header)
-                    );
-                    
-                    if (missingHeaders.length > 0) {
-                        throw new Error(`Missing required columns: ${missingHeaders.join(', ')}`);
+                    const headers = lines[0].split(',').map((h) => h.trim());
+                    const cropIdx = findCsvColumnIndex(headers, ['crop type', 'crop']);
+                    const latIdx = findCsvColumnIndex(headers, ['latitude', 'lat']);
+                    const lonIdx = findCsvColumnIndex(headers, ['longitude', 'lon', 'lng']);
+
+                    const missing = [];
+                    if (cropIdx === -1) missing.push('Crop Type');
+                    if (latIdx === -1) missing.push('latitude');
+                    if (lonIdx === -1) missing.push('longitude');
+                    if (missing.length > 0) {
+                        throw new Error(`Missing required columns: ${missing.join(', ')}`);
                     }
 
                     const data = [];
                     for (let i = 1; i < lines.length; i++) {
-                        const values = lines[i].split(',').map(v => v.trim());
-                        if (values.length >= 5 && values[0] && values[1] && values[2] && values[3] && values[4]) {
-                            data.push({
-                                no: values[0],
-                                cropType: values[1],
-                                fertilizerType: values[2],
-                                latitude: parseFloat(values[3]),
-                                longitude: parseFloat(values[4])
-                            });
+                        const values = lines[i].split(',').map((v) => v.trim());
+                        const cropType = values[cropIdx];
+                        const latitude = parseFloat(values[latIdx]);
+                        const longitude = parseFloat(values[lonIdx]);
+
+                        if (cropType && !Number.isNaN(latitude) && !Number.isNaN(longitude)) {
+                            data.push({ cropType, latitude, longitude });
                         }
                     }
 
@@ -824,95 +859,98 @@ Please provide a helpful, conversational response that acknowledges the error an
         });
     };
 
+    const formatKgHaRate = (value) => {
+        if (value == null || Number.isNaN(value)) return 'No data available';
+        return String(Math.round(value));
+    };
+
     const processCSVData = async (csvData) => {
         const processedData = [];
-        
+
         for (const row of csvData) {
             try {
-                // Validate coordinates
-                if (isNaN(row.latitude) || isNaN(row.longitude)) {
+                if (Number.isNaN(row.latitude) || Number.isNaN(row.longitude)) {
                     processedData.push({
                         ...row,
-                        recommendedAmount: 'Invalid coordinates',
-                        error: 'Invalid latitude or longitude'
+                        dapKgHa: 'Invalid coordinates',
+                        ureaKgHa: 'Invalid coordinates',
+                        error: 'Invalid latitude or longitude',
                     });
                     continue;
                 }
 
-                // Check if coordinates are within Ethiopia bounds
-                if (row.latitude < 3.4 || row.latitude > 14.9 || row.longitude < 33.0 || row.longitude > 48.0) {
+                if (
+                    row.latitude < 3.4 ||
+                    row.latitude > 14.9 ||
+                    row.longitude < 33.0 ||
+                    row.longitude > 48.0
+                ) {
                     processedData.push({
                         ...row,
-                        recommendedAmount: 'Outside Ethiopia',
-                        error: 'Coordinates outside Ethiopia bounds'
+                        dapKgHa: 'Outside Ethiopia',
+                        ureaKgHa: 'Outside Ethiopia',
+                        error: 'Coordinates outside Ethiopia bounds',
                     });
                     continue;
                 }
 
-                // Find matching layer
-                const matchingLayer = findMatchingLayer(row.cropType, row.fertilizerType);
-                
-                if (!matchingLayer) {
+                const dapLayer = findMatchingLayer(row.cropType, 'dap');
+                const ureaLayer = findMatchingLayer(row.cropType, 'urea');
+
+                if (!dapLayer || !ureaLayer) {
                     processedData.push({
                         ...row,
-                        recommendedAmount: 'No data available',
-                        error: `No matching layer found for ${row.cropType} + ${row.fertilizerType}`
+                        dapKgHa: dapLayer ? 'No data available' : 'Not available for crop',
+                        ureaKgHa: ureaLayer ? 'No data available' : 'Not available for crop',
+                        error: `Fertilizer data not available for ${row.cropType}`,
                     });
                     continue;
                 }
 
-                // Get fertilizer recommendation
-                const recommendation = await getFertilizerRecommendation(matchingLayer, row.latitude, row.longitude);
-                
-                if (recommendation && recommendation.length > 0 && recommendation[0].value) {
-                    const value = recommendation[0].value;
-                    const roundedValue = Math.round(value);
-                    processedData.push({
-                        ...row,
-                        recommendedAmount: `${roundedValue} ${getFertilizerUnit(row.fertilizerType)}`,
-                        error: null
-                    });
-                } else {
-                    processedData.push({
-                        ...row,
-                        recommendedAmount: 'No data available',
-                        error: 'No recommendation data found for this location'
-                    });
-                }
-            } catch (error) {
-                console.error(`Error processing row ${row.no}:`, error);
+                const [dapResponse, ureaResponse] = await Promise.all([
+                    getFertilizerRecommendation(dapLayer, row.latitude, row.longitude),
+                    getFertilizerRecommendation(ureaLayer, row.latitude, row.longitude),
+                ]);
+
+                const dapPerHa = getApiValue(dapResponse);
+                const ureaPerHa = getApiValue(ureaResponse);
+
                 processedData.push({
                     ...row,
-                    recommendedAmount: 'Processing error',
-                    error: error.message
+                    dapKgHa: formatKgHaRate(dapPerHa),
+                    ureaKgHa: formatKgHaRate(ureaPerHa),
+                    error:
+                        dapPerHa == null || ureaPerHa == null
+                            ? 'No recommendation data found for this location'
+                            : null,
+                });
+            } catch (error) {
+                console.error(`Error processing row (${row.cropType}, ${row.latitude}, ${row.longitude}):`, error);
+                processedData.push({
+                    ...row,
+                    dapKgHa: 'Processing error',
+                    ureaKgHa: 'Processing error',
+                    error: error.message,
                 });
             }
         }
-        
+
         return processedData;
     };
 
-    const getFertilizerUnit = (fertilizerType) => {
-        const lowerType = fertilizerType.toLowerCase();
-        if (lowerType.includes('compost') || lowerType.includes('vcompost')) {
-            return 'ton/ha';
-        }
-        return 'kg/ha';
-    };
-
     const generateAndDownloadCSV = (processedData) => {
-        // Create CSV content
-        const headers = ['No', 'Crop Type', 'Fertilizer Type', 'latitude', 'longitude', 'Recommended Amount'];
+        const headers = ['Crop Type', 'latitude', 'longitude', 'DAP (kg/ha)', 'Urea (kg/ha)'];
         const csvContent = [
             headers.join(','),
-            ...processedData.map(row => [
-                row.no,
-                row.cropType,
-                row.fertilizerType,
-                row.latitude,
-                row.longitude,
-                `"${row.recommendedAmount}"`
-            ].join(','))
+            ...processedData.map((row) =>
+                [
+                    `"${row.cropType}"`,
+                    row.latitude,
+                    row.longitude,
+                    `"${row.dapKgHa}"`,
+                    `"${row.ureaKgHa}"`,
+                ].join(',')
+            ),
         ].join('\n');
 
         // Create and download file
@@ -952,27 +990,38 @@ Please provide a helpful, conversational response that acknowledges the error an
 
             const groqResponse = await sendMessageToGroq(textToSend, conversationContext);
             
-            // Update collected data with any new information
             const newCollectedData = { ...collectedData };
-            if (groqResponse.extracted_data.crop) {
-                newCollectedData.crop = groqResponse.extracted_data.crop;
+            const extracted = groqResponse.extracted_data || {};
+
+            if (extracted.crop) {
+                newCollectedData.crop = extracted.crop;
             }
-            if (groqResponse.extracted_data.fertilizer) {
-                newCollectedData.fertilizer = groqResponse.extracted_data.fertilizer;
+            if (extracted.coordinates) {
+                newCollectedData.coordinates = extracted.coordinates;
             }
-            if (groqResponse.extracted_data.coordinates) {
-                newCollectedData.coordinates = groqResponse.extracted_data.coordinates;
+            if (extracted.farm_size_ha != null && extracted.farm_size_ha !== '') {
+                newCollectedData.farmSizeHa = parseFloat(extracted.farm_size_ha);
             }
-            
+
+            const parsedFarmHa = extractFarmSizeFromText(textToSend);
+            if (parsedFarmHa != null) {
+                newCollectedData.farmSizeHa = parsedFarmHa;
+            }
+
             setCollectedData(newCollectedData);
 
             let botResponse = groqResponse.response;
 
-            // Handle next action based on Groq response
-            if (groqResponse.next_action === 'get_recommendation') {
-                // We have all data, get recommendation
-                await getRecommendationWithData(newCollectedData);
-                return;
+            const readyForRecommendation =
+                newCollectedData.crop &&
+                newCollectedData.coordinates &&
+                newCollectedData.farmSizeHa > 0;
+
+            if (groqResponse.next_action === 'get_recommendation' || readyForRecommendation) {
+                if (readyForRecommendation) {
+                    await getCombinedRecommendation(newCollectedData);
+                    return;
+                }
             } else if (groqResponse.next_action === 'show_map') {
                 // Add map button to response with helpful instructions
                 botResponse += '\n\n🗺️ Click here to open map and find your Location\n\n💡 Feel free to click on your location on the map within Ethiopia to select it.';

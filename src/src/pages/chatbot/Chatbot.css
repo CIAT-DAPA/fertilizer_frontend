@@ -23,8 +23,8 @@
     max-width: 1200px !important;
 }
 
-/* Background for the full page */
-body {
+/* Standalone chatbot page only — do not affect dashboard app shell */
+body.chatbot-page-active:not(.app-shell-active) {
     background: linear-gradient(135deg, hsl(0, 0%, 100%) 0%, #ffffff 100%);
     margin: 0;
     padding: 60px 0 0 0;
@@ -32,6 +32,11 @@ body {
     display: flex;
     justify-content: center;
     align-items: flex-start;
+}
+
+body.chatbot-page-active:not(.app-shell-active) #root {
+    width: 100%;
+    max-width: 1200px;
 }
 
 /* Chat Header */
@@ -768,7 +773,7 @@ body {
 }
 
 @media (max-width: 768px) {
-    body {
+    body.chatbot-page-active:not(.app-shell-active) {
         padding: 0;
     }
     
@@ -882,7 +887,7 @@ body {
 }
 
 @media (max-width: 480px) {
-    body {
+    body.chatbot-page-active:not(.app-shell-active) {
         padding: 0;
     }
     

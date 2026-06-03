@@ -4,6 +4,7 @@ import Map from '../../components/map/Map';
 import axios from 'axios';
 import Configuration from "../../conf/Configuration";
 import Spinners from '../../components/loading/Spinners';
+import { DEFAULT_SCENARIO, FALLBACK_SCENARIO, DOMINANT_SCENARIO_OPTION, containsScenarioOption } from '../../utils/scenarioDefaults';
 
 function Fertilization() {
     const [opt_forecast, setOptForecast] = React.useState([]);
@@ -12,7 +13,7 @@ function Fertilization() {
     const [map_init, setMap_init] = React.useState({ center: [9.3988271, 39.9405962], zoom: 6 });
     const [forecast, setForecast] = React.useState();
     const [crop, setCrop] = React.useState();
-    const [scenario, setScenario] = React.useState(opt_scenarios[0].value);
+    const [scenario, setScenario] = React.useState(DEFAULT_SCENARIO);
     const [crops, setCrops] = React.useState([])
     
     const [tableData, setTableData] = React.useState();
@@ -29,18 +30,16 @@ function Fertilization() {
         setScenario(event.value);
     };
 
-    const containsScenario = (array, scenario) => {
-        return array.some(item => item.label === scenario.label && item.value === scenario.value);
-    }
-
     // change scenario dominant
     React.useEffect(() => {
         if ( forecast && forecast !== "2022-07" ) {
-            if ( !containsScenario(opt_scenarios, { label: "Dominant", value: "dominant" }) ) {
-                setOptScenarios( [...opt_scenarios, { label: "Dominant", value: "dominant" } ] )
+            if ( !containsScenarioOption(opt_scenarios, DOMINANT_SCENARIO_OPTION) ) {
+                setOptScenarios( [...opt_scenarios, DOMINANT_SCENARIO_OPTION ] )
+                setScenario(DEFAULT_SCENARIO);
             }
-        } else {
+        } else if (forecast) {
           setOptScenarios( opt_scenarios.filter(filter => filter.value !== "dominant"))
+          setScenario((current) => (current === DEFAULT_SCENARIO ? FALLBACK_SCENARIO : current));
         }
     }, [forecast])
 
@@ -94,7 +93,7 @@ function Fertilization() {
                 
                 {opt_forecast.length > 0 && forecast && opt_crops.length > 0 && crop &&
                     <>
-                        <Sidebar opt_forecast={opt_forecast} opt_crops={opt_crops} opt_scenarios={opt_scenarios} OnChangeForecast={changeForecast} OnChangeCrop={changeCrop} OnChangeScenario={changeScenario} forecast={forecast}/>
+                        <Sidebar opt_forecast={opt_forecast} opt_crops={opt_crops} opt_scenarios={opt_scenarios} scenario={scenario} OnChangeForecast={changeForecast} OnChangeCrop={changeCrop} OnChangeScenario={changeScenario} forecast={forecast}/>
                         <Map id="map_nutrients_yield" init={map_init} type={"nutrients_yield"} crop={crop} forecast={forecast} 
                             scenario={scenario} setTableData={setTableData} style={{height: '80vh'}} cuttable={true} downloadable={true} legend={true}/>
                     </>

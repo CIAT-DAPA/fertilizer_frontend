@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from "axios";
 import center from "@turf/center";
 import { Link } from 'react-router-dom'
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 
 import './Home.css';
 import Map from '../../components/map/Map';
 import Configuration from "../../conf/Configuration";
 import GeoFeatures from '../../services/GeoFeatures';
-import { fetchCountries, matchCountryRecord } from '../../services/countryApiService';
 
 import { setReportInput } from '../../slices/reportSlice';
+import { isReportLocationComplete } from '../../utils/reportLocationUtils';
+import { resolveCountryIdForApi } from '../../services/countryApiService';
 
 //redux
 import { useSelector } from 'react-redux';
@@ -41,7 +42,11 @@ function Home() {
 
     const reportInput = useSelector((state) => state.report);
     const navigate = useNavigate();
+    const location = useLocation();
     const { country, id } = useParams();
+    const firstTimeSetup = location.state?.fromLanding === true;
+    const hadCompleteLocationRef = useRef(isReportLocationComplete(reportInput));
+    const redirectedToLandingRef = useRef(false);
 
     const [formValues, setFormValues] = useState({
         country: [country, id],
@@ -110,69 +115,52 @@ function Home() {
         }
     }, [country, id, reportInput.country, reportInput.region, reportInput.zone, reportInput.woreda, reportInput.kebele, reportInput.type]);
 
-    // Initial load of regions for this country (resolve id against active API if route id is stale)
+    /** First-time setup from home: save location and return to landing instead of report. */
+    useEffect(() => {
+        if (!firstTimeSetup || hadCompleteLocationRef.current || redirectedToLandingRef.current) return;
+        if (!isAdminSelectionComplete(formValues, forWoreda)) return;
+
+        redirectedToLandingRef.current = true;
+        dispatch(
+            setReportInput({
+                formValues: { ...formValues, country: [country, id] },
+            }),
+        );
+        navigate('/', { replace: true });
+    }, [
+        firstTimeSetup,
+        formValues.region,
+        formValues.zone,
+        formValues.woreda,
+        formValues.kebele,
+        formValues.type,
+        forWoreda,
+        country,
+        id,
+        dispatch,
+        navigate,
+    ]);
+
+    // Initial load of regions for this country
     useEffect(() => {
         if (!id) return;
+        const countryId = resolveCountryIdForApi(id);
         let cancelled = false;
-        const routeCountryName = country ? decodeURIComponent(country) : '';
-
-        const loadRegionsForCountry = (countryId) =>
-            axios
-                .get(Configuration.get_url_api_base() + 'adm1/' + countryId)
-                .then((response) => ({
-                    countryId,
-                    regions: Array.isArray(response.data) ? response.data : [],
-                }));
-
         setloading((prev) => ({ ...prev, r: 'loading' }));
-
-        loadRegionsForCountry(id)
-            .then(async ({ countryId, regions }) => {
+        axios
+            .get(Configuration.get_url_api_base() + 'adm1/' + countryId)
+            .then((response) => {
                 if (cancelled) return;
-
-                if (regions.length > 0) {
-                    setSelectsValues((prev) => ({ ...(prev || {}), regions }));
-                    setloading((prev) => ({ ...prev, r: 'pending' }));
-                    return;
-                }
-
-                const countries = await fetchCountries();
-                if (cancelled) return;
-
-                const match =
-                    matchCountryRecord(countries, { id: countryId, name: routeCountryName }) ||
-                    matchCountryRecord(countries, { name: 'Ethiopia', iso2: 'ET' });
-
-                if (!match) {
-                    setloading((prev) => ({ ...prev, r: 'pending' }));
-                    return;
-                }
-
-                if (String(match.id) !== String(countryId)) {
-                    navigate(
-                        '/country_selected/' +
-                            encodeURIComponent(match.name) +
-                            '/' +
-                            match.id,
-                        { replace: true },
-                    );
-                    return;
-                }
-
-                setSelectsValues((prev) => ({ ...(prev || {}), regions: [] }));
+                setSelectsValues((prev) => ({ ...(prev || {}), regions: response.data }));
                 setloading((prev) => ({ ...prev, r: 'pending' }));
             })
-            .catch((err) => {
-                if (!cancelled) {
-                    console.error('Failed to load regions:', err);
-                    setloading((prev) => ({ ...prev, r: 'pending' }));
-                }
+            .catch(() => {
+                if (!cancelled) setloading((prev) => ({ ...prev, r: 'pending' }));
             });
-
         return () => {
             cancelled = true;
         };
-    }, [id, country, navigate]);
+    }, [id]);
 
     // Load zones when region changes
     useEffect(() => {
@@ -380,7 +368,7 @@ function Home() {
                                     <select className="form-select" aria-label="Region" value={tupleToSelectValue(formValues.region)} onChange={e => { const v = e.target.value; if (!v) { setFormValues({ ...formValues, region: null, zone: null, woreda: null, kebele: null }); setDisabledSelect({ z: true, w: true, k: true }); setSelectsValues((prev) => ({ ...prev, zones: null, woredas: null, kebeles: null })); return; } const parts = v.split(","); setFormValues({ ...formValues, region: parts, zone: null, woreda: null, kebele: null }); setDisabledSelect({ z: true, w: true, k: true }); setSelectsValues((prev) => ({ ...prev, zones: null, woredas: null, kebeles: null })); onChangeRegion(parts); }}>
                                         <option key={"region default"} value="">Select a region</option>
                                         {
-                                            selectsValues?.regions && selectsValues?.regions.map((currentRegion) => <option key={currentRegion.id} value={tupleToSelectValue([currentRegion.id, currentRegion.name, currentRegion.ext_id])}>{currentRegion.name}</option>)
+                                            selectsValues?.regions && selectsValues?.regions.map((currentRegion) => <option key={currentRegion.id} value={[currentRegion.id, currentRegion.name, currentRegion.ext_id]}>{currentRegion.name}</option>)
                                         }
                                     </select>
                                     <span className='input-group-text'>
@@ -395,7 +383,7 @@ function Home() {
                                     <select className="form-select" aria-label="Zone" disabled={disabledSelect.z} value={tupleToSelectValue(formValues.zone)} onChange={e => { const v = e.target.value; if (!v) { setFormValues({ ...formValues, zone: null, woreda: null, kebele: null }); setDisabledSelect((d) => ({ ...d, w: true, k: true })); setSelectsValues((prev) => ({ ...prev, woredas: null, kebeles: null })); return; } const parts = v.split(","); setFormValues({ ...formValues, zone: parts, woreda: null, kebele: null }); setDisabledSelect((d) => ({ ...d, w: true, k: true })); setSelectsValues((prev) => ({ ...prev, woredas: null, kebeles: null })); onChangeZone(parts); }}>
                                         <option key={"zone default"} value="">Select a zone</option>
                                         {
-                                            selectsValues?.zones && selectsValues?.zones.map((currentZone) => <option key={currentZone.id} value={tupleToSelectValue([currentZone.id, currentZone.name, currentZone.ext_id])}>{currentZone.name}</option>)
+                                            selectsValues?.zones && selectsValues?.zones.map((currentZone) => <option key={currentZone.id} value={[currentZone.id, currentZone.name, currentZone.ext_id]}>{currentZone.name}</option>)
                                         }
                                     </select>
                                     <span className='input-group-text'>
@@ -413,7 +401,7 @@ function Home() {
                                         <option key={"woreda default"} value="">Select a woreda</option>
 
                                         {
-                                            selectsValues?.woredas && selectsValues?.woredas.map((currentWoreda) => <option key={currentWoreda.id} value={tupleToSelectValue([currentWoreda.id, currentWoreda.name, currentWoreda.ext_id])}>{currentWoreda.name}</option>)
+                                            selectsValues?.woredas && selectsValues?.woredas.map((currentWoreda) => <option key={currentWoreda.id} value={[currentWoreda.id, currentWoreda.name, currentWoreda.ext_id]}>{currentWoreda.name}</option>)
                                         }
                                     </select>
                                     <span className='input-group-text'>
@@ -431,7 +419,7 @@ function Home() {
                                         <option key={"kebele default"} value="">Select a kebele</option>
 
                                         {
-                                            selectsValues?.kebeles && selectsValues?.kebeles.map((currentKebele) => <option key={currentKebele.id} value={tupleToSelectValue([currentKebele.id, currentKebele.name, currentKebele.ext_id, currentKebele.aclimate_id])}>{currentKebele.name}</option>)
+                                            selectsValues?.kebeles && selectsValues?.kebeles.map((currentKebele) => <option key={currentKebele.id} value={[currentKebele.id, currentKebele.name, currentKebele.ext_id, currentKebele.aclimate_id]}>{currentKebele.name}</option>)
                                         }
                                     </select>
                                     <span className='input-group-text'>
@@ -489,9 +477,19 @@ function Home() {
                                 !isAdminSelectionComplete(formValues, forWoreda)
                                 && <Alert />
                             }
-                            <Link className='col d-flex justify-content-center mt-4 mb-4' to={forWoreda ? "/report_woreda" : "/report"} style={verify() ? { "pointerEvents": 'none' } : {}} >
-                                <button type="submit" className="btn btn-primary" disabled={verify()} onClick={() => { dispatch(setReportInput({ formValues: { ...formValues, country: [country, id] } })); }}>Advisory</button>
-                            </Link>
+                            {firstTimeSetup ? (
+                                <div className="col d-flex justify-content-center mt-4 mb-4">
+                                    <p className="text-muted mb-0 font-link-body">
+                                        {isAdminSelectionComplete(formValues, forWoreda)
+                                            ? 'Saving your location and returning to the home page…'
+                                            : 'Complete the location above to return to the home page.'}
+                                    </p>
+                                </div>
+                            ) : (
+                                <Link className='col d-flex justify-content-center mt-4 mb-4' to={forWoreda ? "/report_woreda" : "/report"} style={verify() ? { "pointerEvents": 'none' } : {}} >
+                                    <button type="submit" className="btn btn-primary" disabled={verify()} onClick={() => { dispatch(setReportInput({ formValues: { ...formValues, country: [country, id] } })); }}>Advisory</button>
+                                </Link>
+                            )}
                         </div>
                     </form>
                     <div className='col-md-6'>

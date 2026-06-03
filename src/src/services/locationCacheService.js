@@ -1,5 +1,3 @@
-import { migrateCachedReportLocation } from './countryApiService';
-
 const CACHE_KEY = 'hafas_report_location';
 
 const REPORT_FIELDS = [
@@ -19,7 +17,7 @@ export function loadCachedReportLocation() {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
-    const parsed = migrateCachedReportLocation(JSON.parse(raw));
+    const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return null;
     const state = {};
     for (const key of REPORT_FIELDS) {

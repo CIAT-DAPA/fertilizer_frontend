@@ -24,8 +24,9 @@ export const dashboardNavItems = [
         label: 'Advisories',
         icon: 'bi-collection',
         children: [
+          { to: '/fertilizer_lookup', label: 'Site fertilizer advisory', icon: 'bi-pin-map-fill' },
           { to: '/fertilizer_advisories', label: 'N & P / yield', icon: 'bi-droplet-half' },
-          { to: '/fertilizer_advisories_nps_urea', label: 'NPS & Urea', icon: 'bi-moisture' },
+          { to: '/fertilizer_advisories_nps_urea', label: 'DAP, NPS & Urea', icon: 'bi-moisture' },
           { to: '/isfm', label: 'ISFM', icon: 'bi-recycle' },
           { to: '/agroclimate', label: 'Agroclimate', icon: 'bi-cloud-sun' },
           { to: '/lime', label: 'Lime', icon: 'bi-layers' },
@@ -34,7 +35,6 @@ export const dashboardNavItems = [
           { to: '/irrigation', label: 'Irrigation', icon: 'bi-water' },
           { to: '/mechanization', label: 'Mechanization', icon: 'bi-gear-wide-connected' },
           { to: '/bundled_aas', label: 'Bundled AAS', icon: 'bi-box-seam' },
-          { to: '/wheat_rust', label: 'Wheat rust', icon: 'bi-shield-exclamation' },
         ],
       },
     ],
@@ -43,10 +43,9 @@ export const dashboardNavItems = [
 
 export const advisoryQuickLinks = [
   {
-    title: 'Country & location',
-    description: 'Pick Ethiopia, then region → kebele',
-    path: '/',
-    dynamicLocation: true,
+    title: 'Site fertilizer advisory',
+    description: 'All products by year, crop & coordinates',
+    path: '/fertilizer_lookup',
     color: '#1b4332',
   },
   {
@@ -56,8 +55,8 @@ export const advisoryQuickLinks = [
     color: '#2d6a4f',
   },
   {
-    title: 'NPS & Urea',
-    description: 'Fertilizer blend recommendations',
+    title: 'DAP, NPS & Urea',
+    description: 'DAP, NPS, and Urea blend maps',
     path: '/fertilizer_advisories_nps_urea',
     color: '#40916c',
   },
@@ -97,12 +96,6 @@ export const advisoryQuickLinks = [
     description: 'Water management guidance',
     path: '/irrigation',
     color: '#0077b6',
-  },
-  {
-    title: 'Wheat rust',
-    description: 'Disease advisory module',
-    path: '/wheat_rust',
-    color: '#bc6c25',
   },
   {
     title: 'AI chatbot',

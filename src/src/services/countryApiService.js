@@ -45,6 +45,13 @@ export function getDefaultEthiopiaCountryId() {
   return process.env.REACT_APP_DEFAULT_COUNTRY_ID || PRODUCTION_ETHIOPIA_ID;
 }
 
+/** Map legacy/local Ethiopia ids to the id for the active API (adm1/adm2/… routes). */
+export function resolveCountryIdForApi(id) {
+  if (!id) return getDefaultEthiopiaCountryId();
+  if (String(id) === LEGACY_LOCAL_ETHIOPIA_ID) return getDefaultEthiopiaCountryId();
+  return id;
+}
+
 /**
  * Normalize [name, id] country tuple so the id exists on the active API.
  * Clears admin levels when the country id changes (ids differ across DB instances).

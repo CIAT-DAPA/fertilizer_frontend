@@ -24,6 +24,7 @@ import Methodology from './pages/methodology/Methodology';
 import CountrySelection from './pages/country_selection/CountrySelection';
 import Partners from './pages/partners/Partners';
 import Chatbot from './pages/chatbot/Chatbot';
+import FertilizerLookup from './pages/fertilizer_lookup/FertilizerLookup';
 
 import DashboardHomeModern from './pages/dashboard/DashboardHomeModern';
 import DashboardLocation from './pages/dashboard/DashboardLocation';
@@ -69,6 +70,7 @@ class AppDashboardAuth extends Component {
                 <Route path="/about" element={<About />} />
                 <Route path="/partners" element={<Partners />} />
                 <Route path="/chatbot" element={<Chatbot />} />
+                <Route path="/fertilizer_lookup" element={<FertilizerLookup />} />
               </Route>
             </Routes>
 
