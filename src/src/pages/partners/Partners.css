@@ -12,9 +12,9 @@
   --pt-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
   --pt-shadow-lg: 0 16px 40px rgba(27, 67, 50, 0.12);
   width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1.25rem 3rem;
+  max-width: none;
+  margin: 0;
+  padding: 0 0 3rem;
   animation: pt-fade-in 0.5s ease-out;
 }
 
@@ -181,11 +181,6 @@
 }
 
 @media (max-width: 479.98px) {
-  .partners-page {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-
   .partners-grid {
     grid-template-columns: 1fr;
   }

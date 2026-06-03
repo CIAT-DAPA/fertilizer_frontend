@@ -58,7 +58,11 @@ function Sidebar(props) {
                                 <Select id="cboScenario"
                                     options={props.opt_scenarios}
                                     isSearchable={false}
-                                    defaultValue={props.opt_scenarios[0]}
+                                    value={
+                                        props.scenario != null
+                                            ? props.opt_scenarios.find((o) => o.value === props.scenario) ?? props.opt_scenarios[0]
+                                            : props.opt_scenarios[0]
+                                    }
                                     onChange={handleChangeScenario}
                                     placeholder={"Select"} />
                             </div>

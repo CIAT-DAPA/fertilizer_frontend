@@ -18,11 +18,16 @@ body.app-shell-active {
 }
 
 body.app-shell-active {
+  display: block;
+  width: 100%;
   padding-top: var(--app-header-height);
   overflow-x: hidden;
 }
 
 body.app-shell-active #root {
+  width: 100%;
+  max-width: none;
+  margin: 0;
   min-height: calc(100vh - var(--app-header-height));
 }
 
@@ -45,17 +50,14 @@ body.app-shell-active #root {
 .app-shell__main {
   box-sizing: border-box;
   margin-left: var(--app-sidebar-offset);
-  width: auto;
+  width: calc(100% - var(--app-sidebar-offset));
+  max-width: none;
   min-height: calc(100vh - var(--app-header-height));
-  padding: 1rem 1.25rem 2rem;
+  padding: 1rem calc(1.25rem + 80px) 2rem;
   transition: margin-left 0.25s ease;
   min-width: 0;
   background: transparent;
   overflow-x: clip;
-}
-
-.app-shell__main--collapsed {
-  /* offset updated on .app-shell via inline style when sidebar collapses */
 }
 
 .app-shell__content {
@@ -86,6 +88,6 @@ body.app-shell-active #root {
 
 @media (min-width: 1200px) {
   .app-shell__main {
-    padding: 1.25rem 1.75rem 2.5rem;
+    padding: 1.25rem calc(1.75rem + 80px) 2.5rem;
   }
 }

@@ -4,6 +4,7 @@ import Sidebar from '../../components/sidebar/Sidebar';
 import Map from '../../components/map/Map';
 import axios from 'axios';
 import Configuration from "../../conf/Configuration";
+import { DEFAULT_SCENARIO, FALLBACK_SCENARIO, DOMINANT_SCENARIO_OPTION, containsScenarioOption } from '../../utils/scenarioDefaults';
 
 
 function ISFM() {
@@ -12,7 +13,7 @@ function ISFM() {
     const [opt_crops, setOptCrops] = React.useState([]);
     const [opt_scenarios, setOptScenarios] = React.useState([{ label: "Normal", value: "normal" }, { label: "Above", value: "above" }, { label: "Below", value: "below" }]);
     const [map_init, setMap_init] = React.useState({ center: [9.3988271, 39.9405962], zoom: 6 });
-    const [filters, setFilters] = React.useState({scenario: opt_scenarios[0].value});
+    const [filters, setFilters] = React.useState({ scenario: DEFAULT_SCENARIO });
     const [crops, setCrops] = React.useState([])
  
     
@@ -46,18 +47,19 @@ function ISFM() {
         
     };
 
-    const containsScenario = (array, scenario) => {
-        return array.some(item => item.label === scenario.label && item.value === scenario.value);
-    }
-
      // change scenario dominant
      React.useEffect(() => {
         if ( filters.forecast && filters.forecast !== "2022-07" ) {
-            if ( !containsScenario(opt_scenarios, { label: "Dominant", value: "dominant" }) ) {
-                setOptScenarios( [...opt_scenarios, { label: "Dominant", value: "dominant" } ] )
+            if ( !containsScenarioOption(opt_scenarios, DOMINANT_SCENARIO_OPTION) ) {
+                setOptScenarios( [...opt_scenarios, DOMINANT_SCENARIO_OPTION ] )
+                setFilters((current) => ({ ...current, scenario: DEFAULT_SCENARIO }));
             }
-        } else {
+        } else if (filters.forecast) {
           setOptScenarios( opt_scenarios.filter(filter => filter.value !== "dominant"))
+          setFilters((current) => ({
+            ...current,
+            scenario: current.scenario === DEFAULT_SCENARIO ? FALLBACK_SCENARIO : current.scenario,
+          }));
         }
     }, [filters.forecast])
 
@@ -114,7 +116,7 @@ function ISFM() {
         <div style={{'position': 'relative'}}>
             {opt_forecast.length > 0 && filters.forecast && opt_crops.length > 0 && filters.crop &&
                 <>
-                    <Sidebar opt_forecast={opt_forecast} opt_crops={opt_crops} opt_scenarios={opt_scenarios} OnChangeForecast={changeForecast} OnChangeCrop={changeCrop} OnChangeScenario={changeScenario}/>
+                    <Sidebar opt_forecast={opt_forecast} opt_crops={opt_crops} opt_scenarios={opt_scenarios} scenario={filters.scenario} OnChangeForecast={changeForecast} OnChangeCrop={changeCrop} OnChangeScenario={changeScenario}/>
                     <Map id="map_organic_fertilizers" init={map_init} type={"compost"} crop={filters.crop} forecast={filters.forecast} scenario={filters.scenario} style={{height: '80vh'}} cuttable={true} downloadable={true} legend={true}/>
                 </>
             }

@@ -53,7 +53,8 @@ function Menu() {
                                         </a>
                                         <div className="dropdown-menu" aria-labelledby="navbar2Dropdown">
                                             <Link className="dropdown-item" to="/fertilizer_advisories">N, P & Optimal yield</Link>
-                                            <Link className="dropdown-item" to="/fertilizer_advisories_nps_urea">NPS & Urea</Link>
+                                            <Link className="dropdown-item" to="/fertilizer_advisories_nps_urea">DAP, NPS & Urea</Link>
+                                            <Link className="dropdown-item" to="/fertilizer_lookup">Site fertilizer advisory</Link>
                                         </div>
 
                                         <Link className="dropdown-item" to="/isfm">ISFM</Link>
@@ -61,7 +62,6 @@ function Menu() {
                                         <Link className="dropdown-item" to="/irrigation">Irrigation</Link>
                                         <Link className="dropdown-item" to="/lime">Lime</Link>
                                         <Link className="dropdown-item" to="/agroclimate">Agroclimate</Link>
-                                        <Link className="dropdown-item" to="/wheat_rust">Wheat rust</Link>
                                         {/* <Link className="dropdown-item" to="/pest_disease">Pest and disease surveillance</Link>
                                 <Link className="dropdown-item" to="/mechanization">Mechanization</Link>
                                 <Link className="dropdown-item" to="/bundled_aas">Bundled AAS</Link> */}

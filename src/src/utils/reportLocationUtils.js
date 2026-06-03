@@ -1,9 +1,11 @@
 import { locationPairLabel } from '../components/dashboard/locationPairLabel';
-import { getDefaultEthiopiaCountryId } from '../services/countryApiService';
+import {
+  getDefaultEthiopiaCountryId,
+  resolveCountryIdForApi,
+} from '../services/countryApiService';
 
 /** Default country for location selection (HaFAS Ethiopia). */
 export const DEFAULT_COUNTRY_NAME = 'Ethiopia';
-/** Resolved from active API; override via REACT_APP_DEFAULT_COUNTRY_ID for local Mongo. */
 export const DEFAULT_COUNTRY_ID = getDefaultEthiopiaCountryId();
 
 /**
@@ -31,9 +33,8 @@ export function formatSavedLocationLabel(report) {
 export function getLocationSelectionPath(report) {
   if (report?.country) {
     const [name, id] = report.country;
-    return `/country_selected/${encodeURIComponent(name)}/${id}`;
+    return `/country_selected/${encodeURIComponent(name)}/${resolveCountryIdForApi(id)}`;
   }
-  // Default Ethiopia path (production API id; override via REACT_APP_DEFAULT_COUNTRY_ID for local).
   return `/country_selected/${encodeURIComponent(DEFAULT_COUNTRY_NAME)}/${DEFAULT_COUNTRY_ID}`;
 }
 

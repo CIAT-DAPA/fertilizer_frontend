@@ -6,6 +6,7 @@ import { useSelector } from 'react-redux';
 import axios from 'axios';
 import Configuration from '../../conf/Configuration';
 import LocationStatusBanner from '../../components/location/LocationStatusBanner';
+import { isReportLocationComplete } from '../../utils/reportLocationUtils';
 import './CountrySelection.css';
 
 const GEO_URL = 'https://unpkg.com/world-atlas@2.0.2/countries-110m.json';
@@ -96,9 +97,14 @@ function CountrySelection() {
       setHoveredCountry(selectedOption);
       navigate(
         '/country_selected/' + encodeURIComponent(selectedOption.label) + '/' + selectedOption.id,
+        {
+          state: {
+            fromLanding: !isReportLocationComplete(report),
+          },
+        },
       );
     },
-    [navigate],
+    [navigate, report],
   );
 
   const handleMapCountryClick = (geo) => {
@@ -271,6 +277,7 @@ function CountrySelection() {
                     }}
                   >
                     {hoveredCountry.label}
+                    {isCountryAvailable(hoveredCountry.label) ? ' · Click' : ''}
                   </text>
                 </Annotation>
               )}

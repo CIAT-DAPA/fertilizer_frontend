@@ -8,7 +8,7 @@
 .dash-main {
   flex: 1;
   margin-left: 260px;
-  padding: 1.5rem 1.75rem 2.5rem;
+  padding: 1.1rem 0.9rem 2.5rem;
   transition: margin-left 0.25s ease;
   max-width: 100%;
   overflow-x: hidden;
@@ -21,6 +21,6 @@
 @media (max-width: 991px) {
   .dash-main {
     margin-left: 72px;
-    padding: 1rem;
+    padding: 0.9rem 0.85rem 1rem;
   }
 }

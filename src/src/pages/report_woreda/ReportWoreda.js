@@ -13,6 +13,7 @@ import Chart from "react-apexcharts";
 import SelectFilters from '../../components/select_filters/SelectFilters';
 import Spinners from '../../components/loading/Spinners';
 import LoadingReport from "../../components/loading/LoadingReport";
+import { DEFAULT_SCENARIO, FALLBACK_SCENARIO } from '../../utils/scenarioDefaults';
 const bbox = require("geojson-bbox");
 
 function ReportWoreda() {
@@ -35,6 +36,7 @@ function ReportWoreda() {
     const [forecast, setForecast] = React.useState();
     const [opt_crops, setOptCrops] = React.useState([]);
     const [opt_scenarios, setOptScenarios] = React.useState(["normal", "above", "below"]);
+    const [scenario, setScenario] = React.useState(DEFAULT_SCENARIO);
     const [crop, setCrop] = React.useState();
     const [forecasts, setForecasts] = React.useState([]);
     const [crops, setCrops] = React.useState([])
@@ -46,9 +48,11 @@ function ReportWoreda() {
             if (forecast !== "2022-07") {
                 if (!opt_scenarios.includes("dominant")) {
                     setOptScenarios([...opt_scenarios, "dominant"])
+                    setScenario(DEFAULT_SCENARIO);
                 }
             } else {
                 setOptScenarios(opt_scenarios.filter(filter => filter !== "dominant"))
+                setScenario((current) => (current === DEFAULT_SCENARIO ? FALLBACK_SCENARIO : current));
             }
 
             const forecastFound = forecasts.find(prop => prop.date === forecast)
@@ -255,7 +259,7 @@ function ReportWoreda() {
                         <Map
                             scenarios={opt_scenarios}
                             crop={crop}
-                            scenario="normal"
+                            scenario={scenario}
                             id={id}
                             init={map_init}
                             type={id}

@@ -12,16 +12,15 @@ import './DashboardHome.css';
 import './DashboardHomeModern.css';
 
 const QUICK_ICONS = {
-  'Country & location': 'bi-geo-alt-fill',
+  'Site fertilizer advisory': 'bi-pin-map-fill',
   'N, P & optimal yield': 'bi-droplet-half',
-  'NPS & Urea': 'bi-moisture',
+  'DAP, NPS & Urea': 'bi-moisture',
   'ISFM': 'bi-recycle',
   'PDF report': 'bi-file-earmark-pdf-fill',
   Agroclimate: 'bi-cloud-sun-fill',
   Lime: 'bi-layers-fill',
   CSA: 'bi-tree-fill',
   Irrigation: 'bi-water',
-  'Wheat rust': 'bi-shield-exclamation',
   'AI chatbot': 'bi-robot',
   Methodology: 'bi-journal-bookmark-fill',
 };

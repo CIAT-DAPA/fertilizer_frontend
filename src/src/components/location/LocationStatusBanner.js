@@ -44,7 +44,13 @@ function LocationStatusBanner({ variant = 'landing' }) {
           {variant === 'landing' ? (
             <p>
               Please set your country, region, zone, woreda &amp; kebele below or{' '}
-              <Link to={locationSelectionPath}>set it here</Link>.
+              <Link
+                to={locationSelectionPath}
+                state={hasSavedLocation ? undefined : { fromLanding: true }}
+              >
+                set it here
+              </Link>
+              .
             </p>
           ) : (
             <p>Please set your country, region, zone, woreda &amp; kebele.</p>
