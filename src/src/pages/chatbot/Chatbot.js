@@ -525,7 +525,7 @@ If user asks about other topics, provide general responses and redirect to ferti
         try {
             const coorData = [{ lat: parseFloat(lat), lon: parseFloat(lon) }];
             const coorStr = JSON.stringify(coorData);
-            const date = "2025-07";
+            const date = "2026-07";
             
             const response = await axios.post(
                 `${Configuration.get_url_api_base()}coordinates/${layer}/${coorStr}/${date}`
