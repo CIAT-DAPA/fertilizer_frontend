@@ -4,7 +4,7 @@ import DashboardPageHeader from '../../components/dashboard/DashboardPageHeader'
 import { advisoryQuickLinks } from '../../components/dashboard/dashboardNavConfig';
 import './DashboardAdvisories.css';
 
-const HIDDEN_ON_ADVISORY_HUB = new Set(['Methodology', 'PDF report']);
+const HIDDEN_ON_ADVISORY_HUB = new Set(['Report']);
 
 /** First items on the Advisory hub grid (others keep config order). */
 const ADVISORY_HUB_PRIORITY = ['Site fertilizer advisory', 'AI chatbot'];

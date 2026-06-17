@@ -67,13 +67,6 @@ export const advisoryQuickLinks = [
     color: '#52b788',
   },
   {
-    title: 'PDF report',
-    description: 'Charts, maps & seasonal outlook',
-    path: '/report',
-    dynamicReport: true,
-    color: '#1d3557',
-  },
-  {
     title: 'Agroclimate',
     description: 'Climate-smart agriculture info',
     path: '/agroclimate',
@@ -104,9 +97,10 @@ export const advisoryQuickLinks = [
     color: '#5a189a',
   },
   {
-    title: 'Methodology',
-    description: 'Data sources & methods',
-    path: '/methodology',
-    color: '#495057',
+    title: 'Report',
+    description: 'Charts, maps & seasonal outlook',
+    path: '/report',
+    dynamicReport: true,
+    color: '#1d3557',
   },
 ];

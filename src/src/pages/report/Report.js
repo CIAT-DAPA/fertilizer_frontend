@@ -37,12 +37,14 @@ function Report() {
     const [forecasts, setForecasts] = React.useState([]);
     const [crops, setCrops] = React.useState([])
     const [load, setLoad] = React.useState(false);
+    const [loadError, setLoadError] = React.useState(null);
 
     // changing scenarios and loading data for graphs when date forescat changes
     React.useEffect(() => {
         const fetchData = async () => {
             setLoad(false);
-            if (reportInput.kebele && forecasts.length > 0) {
+            setLoadError(null);
+            if (reportInput.kebele && forecasts.length > 0 && forecast) {
                 if (forecast !== "2022-07") {
                     if (!opt_scenarios.includes("dominant")) {
                         setOptScenarios([...opt_scenarios, "dominant"])
@@ -54,16 +56,31 @@ function Report() {
                 }
 
                 const forecastFound = forecasts.find(prop => prop.date === forecast)
-                await axios.get(Configuration.get_url_api_base() + "metrics/" + reportInput.kebele[0])
-                    .then(response => {
-                        setBarChartData(response.data.filter(data => data.forecast === forecastFound.id));
-                    });
+                if (!forecastFound?.id) {
+                    setLoadError('Selected forecast month was not found for this crop.');
+                    return;
+                }
+                const forecastId = String(forecastFound.id);
+                try {
+                    const metricsResponse = await axios.get(
+                        Configuration.get_url_api_base() + "metrics/" + reportInput.kebele[0]
+                    );
+                    const metricRows = Array.isArray(metricsResponse.data) ? metricsResponse.data : [];
+                    setBarChartData(metricRows.filter((data) => String(data.forecast) === forecastId));
 
-                await axios.get(Configuration.get_url_api_base() + "risk/" + reportInput.kebele[0] + '/' + forecastFound.id)
-                    .then(response => {
-                        setRisk(response?.data[0]?.risk?.values[0])
-                        setLoad(true)
-                    });
+                    const riskResponse = await axios.get(
+                        Configuration.get_url_api_base() + "risk/" + reportInput.kebele[0] + '/' + forecastId
+                    );
+                    setRisk(riskResponse?.data[0]?.risk?.values[0]);
+                    setLoad(true);
+                } catch (err) {
+                    setBarChartData([]);
+                    setLoadError(
+                        err.response?.data?.message ||
+                        err.message ||
+                        (err.response ? `HTTP ${err.response.status}` : 'Network error')
+                    );
+                }
 
                 if (reportInput.kebele[3]) {
                     await axios.get(Configuration.get_url_aclimate_api_base() + "Forecast/Climate/" + reportInput.kebele[3] + "/false/json")
@@ -78,22 +95,44 @@ function Report() {
         }
         fetchData()
 
-    }, [forecast, opt_forecast]);
+    }, [forecast, forecasts, reportInput.kebele]);
 
     // load of date forecast by crop
     React.useEffect(() => {
         if (crop && crops.length > 0) {
             const cropFound = crops.find(prop => prop.name === crop)
-            axios.get(Configuration.get_url_api_base() + `forecast/${cropFound.id}`)
+            if (!cropFound?.id) {
+                setLoadError('Selected crop was not found.');
+                return;
+            }
+            setLoadError(null);
+            axios.get(Configuration.get_url_api_base() + `forecast/${encodeURIComponent(String(cropFound.id))}`)
                 .then(response => {
-                    const date = response.data.map(forecast => ({ label: forecast.date, value: forecast.date }))
-                    setForecasts(response.data);
-                    setForecast(date.at(-1).value);
-                    setOptForecast(date);
+                    const rows = Array.isArray(response.data) ? response.data : [];
+                    const date = rows.map(forecast => ({ label: forecast.date, value: forecast.date }))
+                    setForecasts(rows);
+                    if (date.length) {
+                        setForecast(date.at(-1).value);
+                        setOptForecast(date);
+                    } else {
+                        setForecast(undefined);
+                        setOptForecast([]);
+                        setLoadError('No forecast months are available for this crop.');
+                    }
+                })
+                .catch((err) => {
+                    setForecasts([]);
+                    setOptForecast([]);
+                    setForecast(undefined);
+                    setLoadError(
+                        err.response?.data?.message ||
+                        err.message ||
+                        (err.response ? `HTTP ${err.response.status}` : 'Network error')
+                    );
                 });
         }
 
-    }, [crop])
+    }, [crop, crops])
 
     // Initial load, crops and geojson
     React.useEffect(() => {
@@ -107,10 +146,20 @@ function Report() {
         if (opt_forecast.length === 0) {
             axios.get(Configuration.get_url_api_base() + "crops")
                 .then(response => {
-                    const crops = response.data.map(crop => ({ label: crop.name.charAt(0).toUpperCase() + crop.name.slice(1), value: crop.name }))
-                    setCrop(crops[0].value)
-                    setOptCrops(crops);
-                    setCrops(response.data)
+                    const rows = Array.isArray(response.data) ? response.data : [];
+                    const cropOptions = rows.map(crop => ({ label: crop.name.charAt(0).toUpperCase() + crop.name.slice(1), value: crop.name }))
+                    if (cropOptions.length) {
+                        setCrop(cropOptions[0].value)
+                    }
+                    setOptCrops(cropOptions);
+                    setCrops(rows)
+                })
+                .catch((err) => {
+                    setLoadError(
+                        err.response?.data?.message ||
+                        err.message ||
+                        (err.response ? `HTTP ${err.response.status}` : 'Network error')
+                    );
                 });
         }
     }, [])
@@ -247,6 +296,11 @@ function Report() {
                         {!opt_forecast.length > 0 ? <Spinners /> :
                             <>
                                 <SelectFilters onChangeCrop={changeCrop} onChangeForecast={changeForecast} opt_forecast={opt_forecast} opt_crops={opt_crops} />
+                                {loadError && (
+                                    <div className="alert alert-warning mt-3" role="alert">
+                                        {loadError}
+                                    </div>
+                                )}
                                 {barChartData && opt_forecast && forecast &&
                                     <div id='report'>
                                         <div className="row my-3 g-8 row-cols-auto justify-content-between">
