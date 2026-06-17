@@ -1,6 +1,5 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { useSelector } from 'react-redux';
 
 export const API_LINKS = [
   {
@@ -16,27 +15,7 @@ export const API_LINKS = [
 ];
 
 function HeaderPrimaryNav({ idPrefix = 'nav' }) {
-  const reportInput = useSelector((state) => state.report);
   const dropdownId = `${idPrefix}-apis-dropdown`;
-
-  const reportNav =
-    reportInput?.type === 'kebele' ? (
-      <li className="nav-item">
-        <NavLink className="hafas-header__link nav-link" to="/report">
-          Report
-        </NavLink>
-      </li>
-    ) : reportInput?.type === 'woreda' ? (
-      <li className="nav-item">
-        <NavLink className="hafas-header__link nav-link" to="/report_woreda">
-          Report
-        </NavLink>
-      </li>
-    ) : (
-      <li className="nav-item">
-        <span className="nav-link hafas-header__link disabled">Report</span>
-      </li>
-    );
 
   return (
     <ul className="navbar-nav hafas-header__nav me-auto mb-2 mb-md-0">
@@ -96,7 +75,11 @@ function HeaderPrimaryNav({ idPrefix = 'nav' }) {
         </ul>
       </li>
 
-      {reportNav}
+      <li className="nav-item">
+        <NavLink className="hafas-header__link nav-link" to="/success-stories">
+          Success Stories
+        </NavLink>
+      </li>
 
       <li className="nav-item">
         <NavLink className="hafas-header__link nav-link" to="/chatbot">
