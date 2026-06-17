@@ -16,13 +16,12 @@ const QUICK_ICONS = {
   'N, P & optimal yield': 'bi-droplet-half',
   'DAP, NPS & Urea': 'bi-moisture',
   'ISFM': 'bi-recycle',
-  'PDF report': 'bi-file-earmark-pdf-fill',
+  Report: 'bi-file-earmark-pdf-fill',
   Agroclimate: 'bi-cloud-sun-fill',
   Lime: 'bi-layers-fill',
   CSA: 'bi-tree-fill',
   Irrigation: 'bi-water',
   'AI chatbot': 'bi-robot',
-  Methodology: 'bi-journal-bookmark-fill',
 };
 
 const SETUP_STEPS = [

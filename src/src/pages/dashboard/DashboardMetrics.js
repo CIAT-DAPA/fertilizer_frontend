@@ -30,6 +30,7 @@ function DashboardMetrics() {
   const [loading, setLoading] = useState(false);
   const [forecastsLoading, setForecastsLoading] = useState(false);
   const [metricsError, setMetricsError] = useState(null);
+  const [forecastsError, setForecastsError] = useState(null);
 
   const resolvedForecastId = useMemo(() => {
     if (!selectedForecastMonth) return null;
@@ -37,32 +38,37 @@ function DashboardMetrics() {
   }, [selectedForecastMonth, forecasts]);
 
   useEffect(() => {
-    axios.get(Configuration.get_url_api_base() + 'crops').then((res) => {
-      const list = Array.isArray(res.data) ? res.data : [];
-      const opts = list.map((c) => ({ label: c.name, value: c.id }));
-      setCrops(opts);
-      if (opts.length) setCrop(opts[0]);
-    });
+    axios
+      .get(Configuration.get_url_api_base() + 'crops')
+      .then((res) => {
+        const list = Array.isArray(res.data) ? res.data : [];
+        const opts = list.map((c) => ({ label: c.name, value: c.id }));
+        setCrops(opts);
+        if (opts.length) setCrop(opts[0]);
+      })
+      .catch((err) => {
+        setCrops([]);
+        setCrop(null);
+        setForecastsError(
+          err.response?.data?.message ||
+            err.message ||
+            (err.response ? `HTTP ${err.response.status}` : 'Network error')
+        );
+      });
   }, []);
-
-  const MAX_FORECAST_YEAR = 2025;
 
   useEffect(() => {
     if (!crop?.value) return;
     setForecastsLoading(true);
+    setForecastsError(null);
     axios
-      .get(Configuration.get_url_api_base() + 'forecast/' + crop.value)
+      .get(Configuration.get_url_api_base() + 'forecast/' + encodeURIComponent(String(crop.value)))
       .then((res) => {
-        const opts = (Array.isArray(res.data) ? res.data : [])
-          .filter((f) => {
-            const year = parseInt(String(f.date).split('-')[0], 10);
-            return !Number.isNaN(year) && year <= MAX_FORECAST_YEAR;
-          })
-          .map((f) => ({
-            label: f.date,
-            value: f.date,
-            id: f.id,
-          }));
+        const opts = (Array.isArray(res.data) ? res.data : []).map((f) => ({
+          label: f.date,
+          value: f.date,
+          id: f.id,
+        }));
         setForecasts(opts);
         if (opts.length) {
           setSelectedForecastMonth(opts[opts.length - 1].value);
@@ -70,9 +76,14 @@ function DashboardMetrics() {
           setSelectedForecastMonth(null);
         }
       })
-      .catch(() => {
+      .catch((err) => {
         setForecasts([]);
         setSelectedForecastMonth(null);
+        setForecastsError(
+          err.response?.data?.message ||
+            err.message ||
+            (err.response ? `HTTP ${err.response.status}` : 'Network error')
+        );
       })
       .finally(() => setForecastsLoading(false));
   }, [crop]);
@@ -162,11 +173,20 @@ function DashboardMetrics() {
                 API should return JSON for this kebele id: <code>{String(kebeleId)}</code>.
               </p>
             </div>
+          ) : forecastsError ? (
+            <div className="dash-panel dash-metrics__empty border border-warning">
+              <p className="fw-semibold mb-1">Could not load forecast months from the API</p>
+              <p className="text-secondary small mb-0">{forecastsError}</p>
+              <p className="text-secondary small mt-2 mb-0">
+                Expected <code>GET /forecast/{String(crop?.value ?? 'cropId')}</code> at{' '}
+                {Configuration.get_url_api_base()}. Confirm the API is running and connected to MongoDB.
+              </p>
+            </div>
           ) : !selectedForecastMonth || forecasts.length === 0 ? (
             <div className="dash-panel dash-metrics__empty">
               <p className="text-secondary mb-0">
-                No forecast months for this crop (or still loading). Pick another crop or check{' '}
-                <code>/forecast/&apos;cropId&apos;</code>.
+                No forecast months for this crop. Pick another crop or check{' '}
+                <code>/forecast/{String(crop?.value ?? 'cropId')}</code>.
               </p>
             </div>
           ) : metrics && metrics.length > 0 ? (

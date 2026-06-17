@@ -25,6 +25,7 @@ import Lime from './pages/lime/Lime';
 import Methodology from './pages/methodology/Methodology';
 import CountrySelection from './pages/country_selection/CountrySelection';
 import Partners from './pages/partners/Partners';
+import SuccessStories from './pages/success_stories/SuccessStories';
 import Chatbot from './pages/chatbot/Chatbot';
 import FertilizerLookup from './pages/fertilizer_lookup/FertilizerLookup';
 import FloatingChatbotIcon from './components/FloatingChatbotIcon';
@@ -70,6 +71,7 @@ class AppDashboard extends Component {
               <Route path="/methodology" element={<Methodology />} />
               <Route path="/about" element={<About />} />
               <Route path="/partners" element={<Partners />} />
+              <Route path="/success-stories" element={<SuccessStories />} />
               <Route path="/chatbot" element={<Chatbot />} />
               <Route path="/fertilizer_lookup" element={<FertilizerLookup />} />
             </Routes>
