@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
+import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 import Configuration from "../../conf/Configuration";
 import './Chatbot.css';
 
@@ -739,12 +741,15 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
         const file = event.target.files[0];
         if (!file) return;
 
-        // Validate file type
-        if (!file.name.toLowerCase().endsWith('.csv')) {
+        const fileName = file.name.toLowerCase();
+        const isCsv = fileName.endsWith('.csv');
+        const isXlsx = fileName.endsWith('.xlsx');
+
+        if (!isCsv && !isXlsx) {
             const errorMessage = {
                 id: Date.now(),
                 type: 'bot',
-                content: "❌ Please upload a CSV file. Only .csv files are supported.",
+                content: "❌ Please upload a CSV (.csv) or Excel (.xlsx) file.",
                 timestamp: new Date()
             };
             setMessages(prev => [...prev, errorMessage]);
@@ -756,15 +761,15 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
         const processingMessage = {
             id: Date.now(),
             type: 'bot',
-            content: "📎 Processing your CSV file... Please wait while I analyze the data and generate fertilizer recommendations.",
+            content: "📎 Processing your file... Please wait while I analyze the data and generate fertilizer recommendations.",
             timestamp: new Date()
         };
         setMessages(prev => [...prev, processingMessage]);
 
         try {
-            const csvData = await parseCSVFile(file);
-            const processedData = await processCSVData(csvData);
-            await generateAndDownloadCSV(processedData);
+            const parsedFile = await parseUploadedFile(file);
+            const processedData = await processBulkData(parsedFile.rows);
+            generateAndDownloadFile(processedData, parsedFile.headers, parsedFile.fileFormat);
             
             const successMessage = {
                 id: Date.now() + 1,
@@ -778,7 +783,7 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
             const errorMessage = {
                 id: Date.now() + 1,
                 type: 'bot',
-                content: `❌ Error processing file: ${error.message}. Please check your CSV format and try again.`,
+                content: `❌ Error processing file: ${error.message}. Please check your file format and try again.`,
                 timestamp: new Date()
             };
             setMessages(prev => [...prev, errorMessage]);
@@ -791,11 +796,13 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
         }
     };
 
-    const normalizeCsvHeader = (header) =>
-        header.trim().toLowerCase().replace(/\s+/g, ' ');
+    const FERTILIZER_OUTPUT_COLUMNS = ['DAP (kg/ha)', 'Urea (kg/ha)'];
 
-    const findCsvColumnIndex = (headers, candidates) => {
-        const normalized = headers.map(normalizeCsvHeader);
+    const normalizeHeader = (header) =>
+        String(header ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+    const findColumnIndex = (headers, candidates) => {
+        const normalized = headers.map(normalizeHeader);
         for (const candidate of candidates) {
             const idx = normalized.findIndex(
                 (h) =>
@@ -808,55 +815,175 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
         return -1;
     };
 
-    const parseCSVFile = (file) => {
-        return new Promise((resolve, reject) => {
+    const findColumnKey = (headers, candidates) => {
+        const idx = findColumnIndex(headers, candidates);
+        return idx === -1 ? null : headers[idx];
+    };
+
+    const getRequiredColumnKeys = (headers) => {
+        const cropKey = findColumnKey(headers, ['crop type', 'crop']);
+        const latKey = findColumnKey(headers, ['latitude', 'lat']);
+        const lonKey = findColumnKey(headers, ['longitude', 'lon', 'lng']);
+        return { cropKey, latKey, lonKey };
+    };
+
+    const hasRequiredColumns = (headers) => {
+        const { cropKey, latKey, lonKey } = getRequiredColumnKeys(headers);
+        return Boolean(cropKey && latKey && lonKey);
+    };
+
+    const validateRequiredColumns = (headers) => {
+        const { cropKey, latKey, lonKey } = getRequiredColumnKeys(headers);
+
+        const missing = [];
+        if (!cropKey) missing.push('Crop Type');
+        if (!latKey) missing.push('latitude');
+        if (!lonKey) missing.push('longitude');
+        if (missing.length > 0) {
+            throw new Error(`Missing required columns: ${missing.join(', ')}`);
+        }
+
+        return { cropKey, latKey, lonKey };
+    };
+
+    const detectHeaderRowIndex = (sheetRows, maxScanRows = 30) => {
+        const scanLimit = Math.min(sheetRows.length, maxScanRows);
+        for (let rowIndex = 0; rowIndex < scanLimit; rowIndex += 1) {
+            const headers = sheetRows[rowIndex].map((header) => String(header ?? '').trim());
+            if (hasRequiredColumns(headers)) {
+                return rowIndex;
+            }
+        }
+        return -1;
+    };
+
+    const extractSheetTable = (sheetRows) => {
+        const headerRowIndex = detectHeaderRowIndex(sheetRows);
+        if (headerRowIndex === -1) {
+            return null;
+        }
+
+        const headers = sheetRows[headerRowIndex].map((header) => String(header ?? '').trim());
+        const dataRows = sheetRows.slice(headerRowIndex + 1).filter((row) =>
+            row.some((cell) => String(cell ?? '').trim() !== '')
+        );
+
+        return { headers, dataRows };
+    };
+
+    const buildRowsFromSheetData = (headers, rawRows) => {
+        const { cropKey, latKey, lonKey } = validateRequiredColumns(headers);
+        const rows = [];
+
+        for (const rawRow of rawRows) {
+            const cells = {};
+            headers.forEach((header, index) => {
+                const value = Array.isArray(rawRow)
+                    ? rawRow[index]
+                    : rawRow[header];
+                cells[header] = value == null ? '' : value;
+            });
+
+            const cropType = String(cells[cropKey] ?? '').trim();
+            const latitude = parseFloat(cells[latKey]);
+            const longitude = parseFloat(cells[lonKey]);
+
+            if (cropType && !Number.isNaN(latitude) && !Number.isNaN(longitude)) {
+                rows.push({ cells, cropType, latitude, longitude });
+            }
+        }
+
+        if (rows.length === 0) {
+            throw new Error('No valid data rows found in file');
+        }
+
+        return { headers, rows };
+    };
+
+    const parseCsvFile = (file) =>
+        new Promise((resolve, reject) => {
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => {
+                    try {
+                        const headers = results.meta.fields || [];
+                        if (headers.length === 0) {
+                            throw new Error('File must have a header row');
+                        }
+                        resolve({
+                            ...buildRowsFromSheetData(headers, results.data),
+                            fileFormat: 'csv',
+                        });
+                    } catch (error) {
+                        reject(error);
+                    }
+                },
+                error: (error) => reject(new Error(error.message || 'Failed to parse CSV file')),
+            });
+        });
+
+    const parseXlsxFile = (file) =>
+        new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
-                    const csv = e.target.result;
-                    const lines = csv.split('\n').filter((line) => line.trim());
-
-                    if (lines.length < 2) {
-                        throw new Error('CSV file must have at least a header row and one data row');
+                    const workbook = XLSX.read(e.target.result, { type: 'array' });
+                    if (!workbook.SheetNames.length) {
+                        throw new Error('Excel file has no worksheets');
                     }
 
-                    const headers = lines[0].split(',').map((h) => h.trim());
-                    const cropIdx = findCsvColumnIndex(headers, ['crop type', 'crop']);
-                    const latIdx = findCsvColumnIndex(headers, ['latitude', 'lat']);
-                    const lonIdx = findCsvColumnIndex(headers, ['longitude', 'lon', 'lng']);
+                    let lastError = null;
 
-                    const missing = [];
-                    if (cropIdx === -1) missing.push('Crop Type');
-                    if (latIdx === -1) missing.push('latitude');
-                    if (lonIdx === -1) missing.push('longitude');
-                    if (missing.length > 0) {
-                        throw new Error(`Missing required columns: ${missing.join(', ')}`);
-                    }
+                    for (const sheetName of workbook.SheetNames) {
+                        const sheet = workbook.Sheets[sheetName];
+                        const sheetRows = XLSX.utils.sheet_to_json(sheet, {
+                            header: 1,
+                            defval: '',
+                            raw: false,
+                        });
 
-                    const data = [];
-                    for (let i = 1; i < lines.length; i++) {
-                        const values = lines[i].split(',').map((v) => v.trim());
-                        const cropType = values[cropIdx];
-                        const latitude = parseFloat(values[latIdx]);
-                        const longitude = parseFloat(values[lonIdx]);
+                        const table = extractSheetTable(sheetRows);
+                        if (!table || table.dataRows.length === 0) {
+                            continue;
+                        }
 
-                        if (cropType && !Number.isNaN(latitude) && !Number.isNaN(longitude)) {
-                            data.push({ cropType, latitude, longitude });
+                        try {
+                            resolve({
+                                ...buildRowsFromSheetData(table.headers, table.dataRows),
+                                fileFormat: 'xlsx',
+                            });
+                            return;
+                        } catch (error) {
+                            lastError = error;
                         }
                     }
 
-                    if (data.length === 0) {
-                        throw new Error('No valid data rows found in CSV file');
+                    if (lastError) {
+                        throw lastError;
                     }
 
-                    resolve(data);
+                    throw new Error(
+                        'No worksheet found with required columns (Crop Type, latitude, longitude). ' +
+                        'Add these columns to your data, or use the sheet that includes them.'
+                    );
                 } catch (error) {
                     reject(error);
                 }
             };
-            reader.onerror = () => reject(new Error('Failed to read file'));
-            reader.readAsText(file);
+            reader.onerror = () => reject(new Error('Failed to read Excel file'));
+            reader.readAsArrayBuffer(file);
         });
+
+    const parseUploadedFile = (file) => {
+        const fileName = file.name.toLowerCase();
+        if (fileName.endsWith('.csv')) {
+            return parseCsvFile(file);
+        }
+        if (fileName.endsWith('.xlsx')) {
+            return parseXlsxFile(file);
+        }
+        throw new Error('Unsupported file type');
     };
 
     const formatKgHaRate = (value) => {
@@ -864,10 +991,10 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
         return String(Math.round(value));
     };
 
-    const processCSVData = async (csvData) => {
+    const processBulkData = async (rows) => {
         const processedData = [];
 
-        for (const row of csvData) {
+        for (const row of rows) {
             try {
                 if (Number.isNaN(row.latitude) || Number.isNaN(row.longitude)) {
                     processedData.push({
@@ -938,32 +1065,64 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
         return processedData;
     };
 
-    const generateAndDownloadCSV = (processedData) => {
-        const headers = ['Crop Type', 'latitude', 'longitude', 'DAP (kg/ha)', 'Urea (kg/ha)'];
+    const escapeCsvValue = (value) => {
+        const str = value == null ? '' : String(value);
+        if (/[",\n\r]/.test(str)) {
+            return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+    };
+
+    const buildOutputRows = (processedData, originalHeaders) => {
+        const outputHeaders = [...originalHeaders, ...FERTILIZER_OUTPUT_COLUMNS];
+        const outputRows = processedData.map((row) => [
+            ...originalHeaders.map((header) => row.cells[header] ?? ''),
+            row.dapKgHa ?? '',
+            row.ureaKgHa ?? '',
+        ]);
+        return { outputHeaders, outputRows };
+    };
+
+    const downloadCsvFile = (processedData, originalHeaders) => {
+        const { outputHeaders, outputRows } = buildOutputRows(processedData, originalHeaders);
         const csvContent = [
-            headers.join(','),
-            ...processedData.map((row) =>
-                [
-                    `"${row.cropType}"`,
-                    row.latitude,
-                    row.longitude,
-                    `"${row.dapKgHa}"`,
-                    `"${row.ureaKgHa}"`,
-                ].join(',')
-            ),
+            outputHeaders.map(escapeCsvValue).join(','),
+            ...outputRows.map((row) => row.map(escapeCsvValue).join(',')),
         ].join('\n');
 
-        // Create and download file
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
-        link.setAttribute('download', `fertilizer_recommendations_${new Date().toISOString().split('T')[0]}.csv`);
+        link.setAttribute(
+            'download',
+            `fertilizer_recommendations_${new Date().toISOString().split('T')[0]}.csv`
+        );
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
+    };
+
+    const downloadXlsxFile = (processedData, originalHeaders) => {
+        const { outputHeaders, outputRows } = buildOutputRows(processedData, originalHeaders);
+        const worksheetData = [outputHeaders, ...outputRows];
+        const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Recommendations');
+        XLSX.writeFile(
+            workbook,
+            `fertilizer_recommendations_${new Date().toISOString().split('T')[0]}.xlsx`
+        );
+    };
+
+    const generateAndDownloadFile = (processedData, originalHeaders, fileFormat) => {
+        if (fileFormat === 'xlsx') {
+            downloadXlsxFile(processedData, originalHeaders);
+            return;
+        }
+        downloadCsvFile(processedData, originalHeaders);
     };
 
     const handleSendMessage = async (messageText = null) => {
@@ -1153,7 +1312,7 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
                         <div className="message-bubble">
                             <div className="file-processing-indicator">
                                 <div className="processing-spinner"></div>
-                                <span>Processing CSV file...</span>
+                                <span>Processing file...</span>
                             </div>
                         </div>
                     </div>
@@ -1230,7 +1389,7 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
             <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv"
+                accept=".csv,.xlsx"
                 onChange={handleFileChange}
                 style={{ display: 'none' }}
             />
