@@ -43,17 +43,80 @@ const SHORT_APPLICATION_TIPS = [
     `For these rates: all DAP at sowing; only 25–33% Urea at sowing; follow rainfall-forecast advice for when and how much Urea to add next.`,
 ];
 
+const COORDINATE_IN_TEXT_RE = /(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)/;
+
 const isHowToApplyFertilizerQuery = (text) => {
     if (!text || typeof text !== 'string') return false;
     const t = text.trim().toLowerCase();
     return (
         /how to apply fertiliz/.test(t) ||
-        /fertilizer application strategy/.test(t) ||
-        /how (do|should) i apply (the )?fertiliz/.test(t) ||
+        /need (to know |to understand )?(how|about).{0,40}apply fertiliz/.test(t) ||
+        /(tell|show|explain|teach) me .{0,40}(how to )?apply fertiliz/.test(t) ||
+        /how (do|should|can) i apply (the )?fertiliz/.test(t) ||
+        /fertilizer application (strategy|method|guide|timing)/.test(t) ||
+        /application (method|timing|strategy).{0,20}fertiliz/.test(t) ||
         /when (to|should i) (apply|split) (dap|urea|fertiliz)/.test(t) ||
         /split.?application.*(urea|fertiliz)/.test(t) ||
-        /uncertain rainfall/.test(t)
+        /uncertain rainfall/.test(t) ||
+        /how (should|do|can) (i|we) (split|use) (the )?(urea|dap|fertiliz)/.test(t)
     );
+};
+
+/** Strong cancel / abandon — always honor, even mid-flow. */
+const isStrongCancelQuery = (text) => {
+    if (!text || typeof text !== 'string') return false;
+    const t = text.trim().toLowerCase();
+    if (t.length > 100) return false;
+    return (
+        /\b(leave it|never mind|nevermind|forget it|cancel|stop (it|please)?|no (thanks|thank you|need)|don'?t (bother|worry)|not (now|interested))\b/.test(t) ||
+        /^(cancel|stop|quit|exit)[\s.!]*$/.test(t)
+    );
+};
+
+/** Soft ack — only treat as dismiss after an advisory already finished. */
+const isSoftAcknowledgeQuery = (text) => {
+    if (!text || typeof text !== 'string') return false;
+    const t = text.trim().toLowerCase();
+    // Exclude yes/sure — those often mean "yes, check another crop"
+    return /^(ok|okay|k|oke|alright|all right|fine|got it|understood|thanks|thank you|thx|ty|cool|good|bye|goodbye|that'?s (all|fine|ok|okay)|sounds good)([\s,.!]|$)/.test(t) &&
+        t.length <= 40 &&
+        !/how to apply|recommend|fertilizer for|another (crop|location)|yes|sure/.test(t);
+};
+
+const isDismissOrCancelQuery = (text, { advisorySessionComplete, awaitingMapConfirm }) => {
+    if (isStrongCancelQuery(text)) return true;
+    // Do not swallow "ok/sure" while waiting for map confirmation
+    if (awaitingMapConfirm) return false;
+    if (advisorySessionComplete && isSoftAcknowledgeQuery(text)) return true;
+    return false;
+};
+
+const buildDismissMessage = () =>
+    pickRandom([
+        `Understood. Whenever you're ready, share a crop, farm size in hectares, and location — or ask "How to apply fertilizer?"`,
+        `No problem. I won't retry that request. Tell me if you want advice for another crop or location, or how to apply fertilizer.`,
+        `Okay, leaving that aside. Ask anytime for a new fertilizer recommendation or for how to apply fertilizer.`,
+        `Got it. Ready when you are — another field, another crop, or "How to apply fertilizer?"`,
+    ]);
+
+/** User clearly wants rates / a new advisory (not how-to-apply or small talk). */
+const isExplicitRecommendationRequest = (text) => {
+    if (!text || typeof text !== 'string') return false;
+    const t = text.trim().toLowerCase();
+    if (isHowToApplyFertilizerQuery(t)) return false;
+    return (
+        /\b(recommend|recommendation|advisory|advice)\b/.test(t) ||
+        /\b(how much|fertilizer for|need fertilizer|get fertilizer|check (another|a different|my))\b/.test(t) ||
+        /\b(another|different)\s+(crop|location|field|farm|place)\b/.test(t) ||
+        /\b(try|use)\s+(another|a different|new)\s+(location|coordinate|place|crop)\b/.test(t) ||
+        /\bi (need|want|would like)\b.*\b(fertiliz|yield|recommend)/.test(t)
+    );
+};
+
+/** User likely just supplied the last missing slot this turn (coords or ha). */
+const userProvidedCompletingSlot = (text) => {
+    if (!text || typeof text !== 'string') return false;
+    return extractFarmSizeFromText(text) != null || COORDINATE_IN_TEXT_RE.test(text);
 };
 
 /** Full strategy text for "How to apply fertilizer?" — same facts, varied phrasing. */
@@ -156,6 +219,8 @@ function Chatbot() {
     const [map, setMap] = useState(null);
     const [marker, setMarker] = useState(null);
     const [collectedData, setCollectedData] = useState(emptyCollectedData());
+    // After a recommendation (success or no-data), ignore stale slots until a new explicit request
+    const [advisorySessionComplete, setAdvisorySessionComplete] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
     const [chatStatus, setChatStatus] = useState('online');
     const [isProcessingFile, setIsProcessingFile] = useState(false);
@@ -405,7 +470,7 @@ function Chatbot() {
         return matchingLayer;
     };
 
-    const sendMessageToGroq = async (userMessage, conversationContext = '') => {
+    const sendMessageToGroq = async (userMessage, conversationContext = '', sessionCompleteOverride = null) => {
         try {
             // Check if API key is available
             if (!process.env.REACT_APP_GROQ_API) {
@@ -419,6 +484,8 @@ function Chatbot() {
             }
             
             const crops = getAvailableCrops();
+            const sessionComplete =
+                sessionCompleteOverride == null ? advisorySessionComplete : sessionCompleteOverride;
 
             const systemPrompt = `You are an expert in site-specific fertilizer recommendation for Ethiopian farmers. Your goal is to collect exactly 3 pieces of information, then the system fetches data and builds the final recommendation message.
 
@@ -441,7 +508,14 @@ Available crops: ${crops.join(', ')}
 
 When the user gives farm size, extract a numeric hectares value (e.g. "2 ha", "1.5 hectares", "farm is 3ha"). Store as a number in farm_size_ha.
 
-When all three fields are present (crop, farm_size_ha, coordinates), set next_action to "get_recommendation". Do not ask for fertilizer type.
+CRITICAL — INTENT GATING FOR next_action "get_recommendation":
+- Set next_action to "get_recommendation" ONLY when (a) crop, farm_size_ha, and coordinates are all known, AND (b) the user's LATEST message clearly asks for fertilizer amounts / a recommendation / to check a location or crop.
+- NEVER set get_recommendation for: how to apply fertilizer, application timing/strategy, greetings, thanks, "ok", "leave it", cancel, or vague acknowledgments.
+- NEVER re-use a previous completed advisory to run another recommendation unless the user explicitly asks for another crop/location/recommendation.
+- If the latest user message is only acknowledging or abandoning a prior result ("ok", "leave it", "thanks"), set next_action to "collect_data", keep extracted_data fields null, and reply briefly without re-running advice.
+- Session status: ${sessionComplete ? 'PREVIOUS_ADVISORY_COMPLETE — do not re-trigger recommendation from chat history alone' : 'COLLECTING_OR_NEW'}
+
+When all three fields are present (crop, farm_size_ha, coordinates) AND the user is clearly requesting rates/recommendation, set next_action to "get_recommendation". Do not ask for fertilizer type.
 
 LANGUAGE TONE: Clear, professional, agriculture-appropriate. Avoid words like "thrilled", "fantastic", or "amazing".
 
@@ -464,7 +538,10 @@ I'll calculate fertilizer amounts for your whole farm and your expected harvest.
 
 You may also mention they can tap "How to apply fertilizer?" for the full split-application strategy under uncertain rainfall.
 
-IMPORTANT: Before triggering a recommendation, ensure intent is clear. Greetings and off-topic messages should get a friendly redirect, not next_action get_recommendation.
+IMPORTANT: Before triggering a recommendation, ensure intent is clear. Greetings, how-to-apply questions, and off-topic messages should get a friendly redirect, not next_action get_recommendation.
+
+SPECIAL INSTRUCTIONS FOR HOW TO APPLY / APPLICATION STRATEGY:
+If the user asks how to apply fertilizer, application timing, or split urea under rainfall uncertainty, do NOT set get_recommendation. Briefly acknowledge and tell them to use "How to apply fertilizer?" (the system will show the full strategy). Keep extracted_data null unless they are also starting a new rates request.
 
 SPECIAL INSTRUCTIONS FOR COORDINATES:
 - When asking for coordinates, always offer the map option naturally in your response
@@ -713,6 +790,7 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
             setMessages(prev => [...prev, botMessage]);
             setCurrentStep('initial');
             setCollectedData(emptyCollectedData());
+            setAdvisorySessionComplete(true);
             return;
         }
 
@@ -791,6 +869,7 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
             setIsLoading(false);
             setCurrentStep('initial');
             setCollectedData(emptyCollectedData());
+            setAdvisorySessionComplete(true);
         }
     };
 
@@ -1214,6 +1293,8 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
         setIsTyping(true);
 
         try {
+            const awaitingMapConfirm = currentStep === 'coordinates' || showMap;
+
             // Local, citation-accurate response for how-to-apply (no LLM paraphrase risk)
             if (isHowToApplyFertilizerQuery(textToSend)) {
                 const botMessage = {
@@ -1227,29 +1308,73 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
                 return;
             }
 
+            // Cancel / soft ack after advisory — never re-run the previous recommendation
+            if (isDismissOrCancelQuery(textToSend, { advisorySessionComplete, awaitingMapConfirm })) {
+                setCollectedData(emptyCollectedData());
+                setCurrentStep('initial');
+                setAdvisorySessionComplete(true);
+                const botMessage = {
+                    id: Date.now() + 1,
+                    type: 'bot',
+                    content: buildDismissMessage(),
+                    timestamp: new Date(),
+                    showQuickActions: true
+                };
+                setMessages(prev => [...prev, botMessage]);
+                return;
+            }
+
+            const startingFreshAdvisory =
+                advisorySessionComplete && isExplicitRecommendationRequest(textToSend);
+
+            if (startingFreshAdvisory) {
+                setAdvisorySessionComplete(false);
+                setCollectedData(emptyCollectedData());
+            }
+
             // Create conversation context for Groq
             const conversationContext = messages.map(msg => 
                 `${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
             ).join('\n');
 
-            const groqResponse = await sendMessageToGroq(textToSend, conversationContext);
-            
-            const newCollectedData = { ...collectedData };
+            const groqResponse = await sendMessageToGroq(
+                textToSend,
+                conversationContext,
+                startingFreshAdvisory ? false : advisorySessionComplete
+            );
+
+            const baseData = startingFreshAdvisory ? emptyCollectedData() : { ...collectedData };
+            const newCollectedData = { ...baseData };
             const extracted = groqResponse.extracted_data || {};
 
-            if (extracted.crop) {
-                newCollectedData.crop = extracted.crop;
-            }
-            if (extracted.coordinates) {
-                newCollectedData.coordinates = extracted.coordinates;
-            }
-            if (extracted.farm_size_ha != null && extracted.farm_size_ha !== '') {
-                newCollectedData.farmSizeHa = parseFloat(extracted.farm_size_ha);
-            }
+            // After a completed advisory, ignore stale extractions from chat history
+            // unless the user is clearly starting a new recommendation request.
+            const acceptExtractedSlots =
+                !advisorySessionComplete ||
+                startingFreshAdvisory ||
+                isExplicitRecommendationRequest(textToSend) ||
+                userProvidedCompletingSlot(textToSend);
 
-            const parsedFarmHa = extractFarmSizeFromText(textToSend);
-            if (parsedFarmHa != null) {
-                newCollectedData.farmSizeHa = parsedFarmHa;
+            if (acceptExtractedSlots) {
+                if (extracted.crop) {
+                    newCollectedData.crop = extracted.crop;
+                }
+                if (extracted.coordinates) {
+                    newCollectedData.coordinates = extracted.coordinates;
+                }
+                if (extracted.farm_size_ha != null && extracted.farm_size_ha !== '') {
+                    newCollectedData.farmSizeHa = parseFloat(extracted.farm_size_ha);
+                }
+
+                const parsedFarmHa = extractFarmSizeFromText(textToSend);
+                if (parsedFarmHa != null) {
+                    newCollectedData.farmSizeHa = parsedFarmHa;
+                }
+
+                const coordMatch = textToSend.match(COORDINATE_IN_TEXT_RE);
+                if (coordMatch) {
+                    newCollectedData.coordinates = `${coordMatch[1]},${coordMatch[2]}`;
+                }
             }
 
             setCollectedData(newCollectedData);
@@ -1261,11 +1386,27 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
                 newCollectedData.coordinates &&
                 newCollectedData.farmSizeHa > 0;
 
-            if (groqResponse.next_action === 'get_recommendation' || readyForRecommendation) {
-                if (readyForRecommendation) {
-                    await getCombinedRecommendation(newCollectedData);
-                    return;
-                }
+            // Never auto-run just because slots are filled (that caused "ok" / how-to loops).
+            // Require get_recommendation from the model, with a narrow fallback when the user
+            // just supplied the completing slot mid-collection.
+            const modelWantsRecommendation = groqResponse.next_action === 'get_recommendation';
+            const completingMidCollection =
+                !advisorySessionComplete &&
+                readyForRecommendation &&
+                userProvidedCompletingSlot(textToSend);
+            const explicitNewRequest =
+                readyForRecommendation &&
+                isExplicitRecommendationRequest(textToSend);
+
+            const shouldRunRecommendation =
+                readyForRecommendation &&
+                (modelWantsRecommendation || completingMidCollection || explicitNewRequest) &&
+                !(advisorySessionComplete && !startingFreshAdvisory && !explicitNewRequest);
+
+            if (shouldRunRecommendation) {
+                setAdvisorySessionComplete(false);
+                await getCombinedRecommendation(newCollectedData);
+                return;
             } else if (groqResponse.next_action === 'show_map') {
                 // Add map button to response with helpful instructions
                 botResponse += '\n\n🗺️ Click here to open map and find your Location\n\n💡 Feel free to click on your location on the map within Ethiopia to select it.';
