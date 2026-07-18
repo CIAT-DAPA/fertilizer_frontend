@@ -49,14 +49,19 @@ const isHowToApplyFertilizerQuery = (text) => {
     if (!text || typeof text !== 'string') return false;
     const t = text.trim().toLowerCase();
     return (
-        /how to apply fertiliz/.test(t) ||
-        /need (to know |to understand )?(how|about).{0,40}apply fertiliz/.test(t) ||
-        /(tell|show|explain|teach) me .{0,40}(how to )?apply fertiliz/.test(t) ||
-        /how (do|should|can) i apply (the )?fertiliz/.test(t) ||
+        // Short forms after an advisory: "how to apply?", "how to apply", "application?"
+        /^how to apply\b/.test(t) ||
+        /^(please )?(tell|show|explain|teach) me how to apply\b/.test(t) ||
+        /^how (do|should|can) (i|we) apply\b/.test(t) ||
+        /^(the )?application (steps|method|timing|strategy)\??$/.test(t) ||
+        /\bhow to apply fertiliz/.test(t) ||
+        /need (to know |to understand )?(how|about).{0,40}apply (fertiliz|it|them)?/.test(t) ||
+        /(tell|show|explain|teach) me .{0,40}(how to )?apply (fertiliz|it)?/.test(t) ||
+        /how (do|should|can) i apply (the )?(fertiliz|dap|urea)?/.test(t) ||
         /fertilizer application (strategy|method|guide|timing)/.test(t) ||
-        /application (method|timing|strategy).{0,20}fertiliz/.test(t) ||
-        /when (to|should i) (apply|split) (dap|urea|fertiliz)/.test(t) ||
-        /split.?application.*(urea|fertiliz)/.test(t) ||
+        /application (method|timing|strategy|steps).{0,20}(fertiliz)?/.test(t) ||
+        /when (to|should i) (apply|split) (dap|urea|fertiliz)?/.test(t) ||
+        /split.?application.*(urea|fertiliz)?/.test(t) ||
         /uncertain rainfall/.test(t) ||
         /how (should|do|can) (i|we) (split|use) (the )?(urea|dap|fertiliz)/.test(t)
     );
@@ -541,7 +546,7 @@ You may also mention they can tap "How to apply fertilizer?" for the full split-
 IMPORTANT: Before triggering a recommendation, ensure intent is clear. Greetings, how-to-apply questions, and off-topic messages should get a friendly redirect, not next_action get_recommendation.
 
 SPECIAL INSTRUCTIONS FOR HOW TO APPLY / APPLICATION STRATEGY:
-If the user asks how to apply fertilizer, application timing, or split urea under rainfall uncertainty, do NOT set get_recommendation. Briefly acknowledge and tell them to use "How to apply fertilizer?" (the system will show the full strategy). Keep extracted_data null unless they are also starting a new rates request.
+If the user asks how to apply fertilizer, "how to apply?", application timing/steps, or split urea under rainfall uncertainty: do NOT set get_recommendation, and do NOT tell them to tap or select a button. Reply briefly that you will show the full application strategy (the app displays it automatically). Keep extracted_data null unless they are also starting a new rates request.
 
 SPECIAL INSTRUCTIONS FOR COORDINATES:
 - When asking for coordinates, always offer the map option naturally in your response
