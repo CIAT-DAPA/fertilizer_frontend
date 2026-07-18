@@ -35,6 +35,70 @@ const scaleKgForFarm = (kgPerHa, farmHa) => {
     return Math.round(kgPerHa * farmHa);
 };
 
+const SHORT_APPLICATION_TIPS = [
+    `How to apply: put all DAP at sowing; apply only 25–33% of Urea then, and split the rest using rainfall forecasts (aim for three Urea applications).`,
+    `Application tip: 100% DAP at sowing. Start with 25–33% Urea at sowing; schedule later Urea splits from in-season rainfall forecasts.`,
+    `Under uncertain rainfall: full DAP at planting, first Urea only 25–33%, then time remaining Urea splits with rainfall-forecast guidance.`,
+    `Apply DAP fully at sowing. Split Urea (≥3 times), with just 25–33% at sowing and later doses guided by rainfall forecasts.`,
+    `For these rates: all DAP at sowing; only 25–33% Urea at sowing; follow rainfall-forecast advice for when and how much Urea to add next.`,
+];
+
+const isHowToApplyFertilizerQuery = (text) => {
+    if (!text || typeof text !== 'string') return false;
+    const t = text.trim().toLowerCase();
+    return (
+        /how to apply fertiliz/.test(t) ||
+        /fertilizer application strategy/.test(t) ||
+        /how (do|should) i apply (the )?fertiliz/.test(t) ||
+        /when (to|should i) (apply|split) (dap|urea|fertiliz)/.test(t) ||
+        /split.?application.*(urea|fertiliz)/.test(t) ||
+        /uncertain rainfall/.test(t)
+    );
+};
+
+/** Full strategy text for "How to apply fertilizer?" — same facts, varied phrasing. */
+const buildHowToApplyStrategyMessage = () => {
+    const openings = [
+        `Fertilizer Application Strategy Under Uncertain Rainfall\n\nTo manage fertilizer with seasonal forecasts, use a flexible split-application strategy for urea:`,
+        `Here is the recommended Fertilizer Application Strategy Under Uncertain Rainfall.\n\nA flexible, split-application approach for urea helps you manage fertilizer based on seasonal forecasts:`,
+        `Under uncertain rainfall, this is how to apply fertilizer based on seasonal forecasts — a flexible split strategy for urea:`,
+    ];
+
+    const phosphorusLines = [
+        `Phosphorus: Apply 100% of P fertilizer (DAP) at sowing.`,
+        `Phosphorus (DAP): Apply the full P dose (100%) at sowing.`,
+        `For phosphorus: put 100% of DAP at sowing — do not hold P back for later splits.`,
+    ];
+
+    const ureaLines = [
+        `Urea: Apply only 25–33% of total urea at sowing; apply the remainder in later splits guided by in-season rainfall forecasts.`,
+        `Urea: At sowing, use only 25–33% of the total urea; schedule the rest in subsequent splits using in-season rainfall forecasts.`,
+        `For urea: start with just 25–33% at sowing, then split the remainder according to in-season rainfall forecasts.`,
+    ];
+
+    const rationaleBlocks = [
+        `Flexible split application is expected to improve N use efficiency and reduce production risk. More frequent urea splitting is supported by research showing higher yields than fewer application events. Ethiopian field experiments and global meta-analyses consistently show that three split applications — including a stem elongation or booting stage dose (¼–½–¼ or ⅓–⅓–⅓ at sowing–tillering–stem elongation/booting) — give the greatest benefit by matching N supply with peak crop demand. Similar growth stages can be used for tef, maize, and sorghum. Three-split applications generally outperform two-split approaches (Tadesse et al., 2013; Belete et al., 2018; Derebe et al., 2022; Yu et al., 2022; Yokamo et al., 2022; Yokamo et al., 2023; Jiang et al., 2025; Melak et al., 2026). This is a promising, scalable practice for productivity, nutrient use efficiency, and environmental sustainability in smallholder cereal systems.`,
+        `This flexible split approach should improve nitrogen use efficiency and lower production risk. Evidence from Ethiopian trials and global meta-analyses shows that three urea splits — including at stem elongation or booting (for example ¼–½–¼ or ⅓–⅓–⅓ across sowing, tillering, and stem elongation/booting) — usually outperform fewer splits by synchronizing N with crop demand. Corresponding stages apply for tef, maize, and sorghum. Three-split strategies generally beat two-split ones (Tadesse et al., 2013; Belete et al., 2018; Derebe et al., 2022; Yu et al., 2022; Yokamo et al., 2022; Yokamo et al., 2023; Jiang et al., 2025; Melak et al., 2026). It is a highly promising, scalable option for smallholder cereal systems.`,
+        `Splitting urea this way is expected to raise N use efficiency and cut risk when rainfall is uncertain. Research — including Ethiopian field experiments and global meta-analyses — finds that three applications (with a dose at stem elongation or booting; e.g. ¼–½–¼ or ⅓–⅓–⅓ at sowing–tillering–stem elongation/booting) deliver the strongest gains by aligning N supply with peak demand. Use matching growth stages for tef, maize, and sorghum. Three splits generally outperform two (Tadesse et al., 2013; Belete et al., 2018; Derebe et al., 2022; Yu et al., 2022; Yokamo et al., 2022; Yokamo et al., 2023; Jiang et al., 2025; Melak et al., 2026). This practice is promising and scalable for productivity, efficiency, and sustainability in smallholder cereals.`,
+    ];
+
+    const closings = [
+        `If you need site-specific DAP and Urea amounts for your farm, share your crop, farm size (ha), and location.`,
+        `Want kg totals for your field? Tell me your crop, hectares, and coordinates (or use the map).`,
+        `I can also calculate how much DAP and Urea your farm needs — just share crop, size in ha, and location.`,
+    ];
+
+    return [
+        pickRandom(openings),
+        pickRandom(phosphorusLines),
+        pickRandom(ureaLines),
+        '',
+        pickRandom(rationaleBlocks),
+        '',
+        pickRandom(closings),
+    ].join('\n');
+};
+
 const buildRecommendationMessage = ({ crop, farmHa, dapKg, ureaKg, expectedYieldKg }) => {
     const cropLabel = formatCropName(crop);
     const yieldStr =
@@ -68,12 +132,14 @@ const buildRecommendationMessage = ({ crop, farmHa, dapKg, ureaKg, expectedYield
         `Want me to check another crop or location for you?`,
         `Shall we run another recommendation—different crop or coordinates?`,
         `Happy to help with another farm size, crop, or location if you need one.`,
+        `Ask "How to apply fertilizer?" anytime for the full split-application strategy under uncertain rainfall.`,
     ];
 
     let message = pickRandom(mainLines);
     if (yieldLines.length) {
         message += pickRandom(yieldLines);
     }
+    message += `\n\n${pickRandom(SHORT_APPLICATION_TIPS)}`;
     message += `\n\n${pickRandom(agronomicBlocks)}\n\n${pickRandom(closingQuestions)}`;
     return message;
 };
@@ -112,6 +178,7 @@ function Chatbot() {
     const quickActions = [
         { text: "🌾 Wheat Fertilizer", action: "I need fertilizer recommendations for wheat" },
         { text: "🌽 Maize Fertilizer", action: "I need fertilizer recommendations for maize" },
+        { text: "💧 How to apply fertilizer?", action: "How to apply fertilizer?" },
         { text: "📍 Find My Location", action: "I need help finding my location" },
         { text: "📎 Attach file", action: "file_upload" },
         { text: "❓ How does the bot work?", action: "How does the bot work?" }
@@ -395,6 +462,8 @@ If the user asks how the bot works, explain:
 
 I'll calculate fertilizer amounts for your whole farm and your expected harvest. Specific products and kg totals appear in the final recommendation."
 
+You may also mention they can tap "How to apply fertilizer?" for the full split-application strategy under uncertain rainfall.
+
 IMPORTANT: Before triggering a recommendation, ensure intent is clear. Greetings and off-topic messages should get a friendly redirect, not next_action get_recommendation.
 
 SPECIAL INSTRUCTIONS FOR COORDINATES:
@@ -427,7 +496,8 @@ If user asks about other topics, provide general responses and redirect to ferti
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: "meta-llama/llama-4-scout-17b-16e-instruct",
+                    // Llama 4 Scout was decommissioned 2026-07-17; Groq recommends GPT OSS 120B
+                    model: "openai/gpt-oss-120b",
                     messages: [
                         {
                             role: "system",
@@ -439,7 +509,8 @@ If user asks about other topics, provide general responses and redirect to ferti
                         }
                     ],
                     temperature: 0.7,
-                    max_tokens: 1024
+                    max_tokens: 1024,
+                    response_format: { type: "json_object" }
                 })
             });
 
@@ -704,7 +775,8 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
                 id: Date.now() + 1,
                 type: 'bot',
                 content: resultContent,
-                timestamp: new Date()
+                timestamp: new Date(),
+                showQuickActions: true
             };
             setMessages(prev => [...prev, resultBotMessage]);
         } catch (error) {
@@ -1142,6 +1214,19 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
         setIsTyping(true);
 
         try {
+            // Local, citation-accurate response for how-to-apply (no LLM paraphrase risk)
+            if (isHowToApplyFertilizerQuery(textToSend)) {
+                const botMessage = {
+                    id: Date.now() + 1,
+                    type: 'bot',
+                    content: buildHowToApplyStrategyMessage(),
+                    timestamp: new Date(),
+                    showQuickActions: true
+                };
+                setMessages(prev => [...prev, botMessage]);
+                return;
+            }
+
             // Create conversation context for Groq
             const conversationContext = messages.map(msg => 
                 `${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
