@@ -1,15 +1,21 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import './Menu.css';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../slices/authSlice';
 import HeaderPrimaryNav from './HeaderPrimaryNav';
+import { collapseMobileHeaderNav } from './collapseMobileHeaderNav';
 import logo_nextgen from '../../assets/images/logo_nextgen.png';
 
 function MenuDashboardAuth({ onSidebarToggle, sidebarOpen }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, status } = useSelector((state) => state.auth);
+
+  useEffect(() => {
+    collapseMobileHeaderNav('navbarCollapseDashAuth');
+  }, [location.pathname]);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -50,7 +56,7 @@ function MenuDashboardAuth({ onSidebarToggle, sidebarOpen }) {
           </button>
 
           <div className="collapse navbar-collapse" id="navbarCollapseDashAuth">
-            <HeaderPrimaryNav idPrefix="dash-auth" />
+            <HeaderPrimaryNav idPrefix="dash-auth" mobileCollapseId="navbarCollapseDashAuth" />
 
             <ul className="navbar-nav hafas-header__actions ms-auto align-items-lg-center">
               {status === 'authenticated' && user ? (
