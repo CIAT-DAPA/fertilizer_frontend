@@ -1,7 +1,11 @@
 .fert-lookup {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 0 0 2rem;
+  padding: 0 max(0.75rem, env(safe-area-inset-right, 0px)) max(2rem, env(safe-area-inset-bottom, 0px))
+    max(0.75rem, env(safe-area-inset-left, 0px));
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
 }
 
 .fert-lookup__hero {
@@ -31,12 +35,7 @@
   grid-template-columns: minmax(280px, 360px) 1fr;
   gap: 1.25rem;
   align-items: start;
-}
-
-@media (max-width: 992px) {
-  .fert-lookup__layout {
-    grid-template-columns: 1fr;
-  }
+  min-width: 0;
 }
 
 .fert-lookup__panel {
@@ -45,6 +44,7 @@
   padding: 1.25rem 1.5rem;
   box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
   border: 1px solid #e2e8f0;
+  min-width: 0;
 }
 
 .fert-lookup__panel h2 {
@@ -71,11 +71,13 @@
 .fert-lookup__field select,
 .fert-lookup__field input {
   width: 100%;
+  max-width: 100%;
   padding: 0.55rem 0.75rem;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   font-size: 0.95rem;
   background: #f8fafc;
+  box-sizing: border-box;
 }
 
 .fert-lookup__field select:focus,
@@ -83,6 +85,133 @@
   outline: none;
   border-color: #2d6a4f;
   box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.15);
+}
+
+.fert-lookup__field--location .fert-lookup__location-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0.65rem 1rem;
+  margin-bottom: 0.35rem;
+}
+
+.fert-lookup__location-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+
+.fert-lookup__gps-toggle-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+
+.fert-lookup__gps-detecting {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #2563eb;
+  white-space: nowrap;
+}
+
+.fert-lookup__gps-toggle-text {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #334155;
+  margin-right: 0.35rem;
+  white-space: nowrap;
+}
+
+.fert-lookup__gps-toggle-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  user-select: none;
+  margin: 0;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.fert-lookup__gps-state {
+  font-size: 0.7rem;
+  font-weight: 700;
+  min-width: 1.5rem;
+}
+
+.fert-lookup__gps-state--off {
+  color: #1e293b;
+}
+
+.fert-lookup__gps-state--on {
+  color: #15803d;
+}
+
+.fert-lookup__gps-toggle-control input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.fert-lookup__gps-switch {
+  position: relative;
+  display: inline-block;
+  width: 2.35rem;
+  height: 1.25rem;
+  background: #334155;
+  border: 1px solid #1e293b;
+  border-radius: 999px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.25);
+}
+
+.fert-lookup__gps-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(1.25rem - 6px);
+  height: calc(1.25rem - 6px);
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.35);
+  transition: transform 0.2s ease;
+}
+
+.fert-lookup__gps-toggle-control input:checked + .fert-lookup__gps-switch {
+  background: #16a34a;
+  border-color: #15803d;
+  box-shadow: inset 0 1px 2px rgba(21, 128, 61, 0.35);
+}
+
+.fert-lookup__gps-toggle-control input:checked + .fert-lookup__gps-switch::after {
+  transform: translateX(1.05rem);
+}
+
+.fert-lookup__gps-toggle-control input:focus-visible + .fert-lookup__gps-switch {
+  outline: 2px solid #15803d;
+  outline-offset: 2px;
+}
+
+.fert-lookup__coords input:read-only {
+  background: #eef2ff;
+  color: #334155;
+  cursor: default;
 }
 
 .fert-lookup__coords {
@@ -97,6 +226,7 @@
   overflow: hidden;
   box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
   border: 1px solid #e2e8f0;
+  min-width: 0;
 }
 
 .fert-lookup__map-hint {
@@ -110,6 +240,8 @@
 .fert-lookup__map {
   height: 420px;
   width: 100%;
+  min-height: 220px;
+  touch-action: pan-x pan-y pinch-zoom;
 }
 
 .fert-lookup__actions {
@@ -122,6 +254,7 @@
 .fert-lookup__btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
   padding: 0.6rem 1.1rem;
   border-radius: 8px;
@@ -130,6 +263,8 @@
   border: none;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .fert-lookup__btn:disabled {
@@ -184,6 +319,11 @@
 .fert-lookup__meta {
   font-size: 0.85rem;
   color: #64748b;
+  line-height: 1.45;
+}
+
+.fert-lookup__meta--panel {
+  margin-top: 1rem;
 }
 
 .fert-lookup__grid {
@@ -257,5 +397,126 @@
 @keyframes fert-lookup-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* ─── Mobile / small screens (web app) ─── */
+@media (max-width: 992px) {
+  .fert-lookup__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .fert-lookup__map-wrap {
+    order: 2;
+  }
+}
+
+@media (max-width: 576px) {
+  .fert-lookup__hero {
+    padding: 1.2rem 1rem;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+  }
+
+  .fert-lookup__hero h1 {
+    font-size: 1.3rem;
+    line-height: 1.25;
+  }
+
+  .fert-lookup__hero p {
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .fert-lookup__panel {
+    padding: 1rem;
+    border-radius: 12px;
+  }
+
+  .fert-lookup__field select,
+  .fert-lookup__field input {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .fert-lookup__field--location .fert-lookup__location-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .fert-lookup__gps-toggle-wrap {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    row-gap: 0.35rem;
+  }
+
+  .fert-lookup__gps-toggle-control {
+    min-height: 44px;
+    padding-left: 0.15rem;
+  }
+
+  .fert-lookup__gps-switch {
+    width: 2.75rem;
+    height: 1.45rem;
+  }
+
+  .fert-lookup__gps-toggle-control input:checked + .fert-lookup__gps-switch::after {
+    transform: translateX(1.25rem);
+  }
+
+  .fert-lookup__coords {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+
+  .fert-lookup__actions {
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .fert-lookup__actions .fert-lookup__btn {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  .fert-lookup__map-hint {
+    font-size: 0.8rem;
+    line-height: 1.45;
+    padding: 0.65rem 0.85rem;
+  }
+
+  .fert-lookup__map {
+    height: min(48vh, 340px);
+  }
+
+  .fert-lookup__results-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .fert-lookup__results-header .fert-lookup__btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .fert-lookup__grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .fert-lookup__card-value {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .fert-lookup__gps-toggle-text {
+    font-size: 0.65rem;
+  }
+
+  .fert-lookup__gps-state {
+    font-size: 0.65rem;
   }
 }

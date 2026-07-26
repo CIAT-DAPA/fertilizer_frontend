@@ -3,6 +3,15 @@ import axios from 'axios';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import Configuration from "../../conf/Configuration";
+import {
+    formatFarmCoordinates,
+    geolocationErrorMessage,
+    isGeolocationSupported,
+    isWithinEthiopia,
+    queryGeolocationPermission,
+    requestCurrentPosition,
+} from '../../utils/geolocation';
+import { ETHIOPIA_BOUNDS } from '../../utils/fertilizerLayerUtils';
 import './Chatbot.css';
 
 // Declare L as a global variable for Leaflet
@@ -104,6 +113,12 @@ const buildDismissMessage = () =>
         `Got it. Ready when you are — another field, another crop, or "How to apply fertilizer?"`,
     ]);
 
+const MAP_FALLBACK_LINE =
+    '🗺️ Map fallback — click here to pick your field if GPS is unavailable';
+
+const appendMapFallbackLines = (text) =>
+    `${text}\n\n${MAP_FALLBACK_LINE}\n\n💡 Or type coordinates as latitude,longitude`;
+
 /** User clearly wants rates / a new advisory (not how-to-apply or small talk). */
 const isExplicitRecommendationRequest = (text) => {
     if (!text || typeof text !== 'string') return false;
@@ -112,6 +127,8 @@ const isExplicitRecommendationRequest = (text) => {
     return (
         /\b(recommend|recommendation|advisory|advice)\b/.test(t) ||
         /\b(how much|fertilizer for|need fertilizer|get fertilizer|check (another|a different|my))\b/.test(t) ||
+        /\bfertilizer for my location\b/.test(t) ||
+        /\bfor my location\b/.test(t) ||
         /\b(another|different)\s+(crop|location|field|farm|place)\b/.test(t) ||
         /\b(try|use)\s+(another|a different|new)\s+(location|coordinate|place|crop)\b/.test(t) ||
         /\bi (need|want|would like)\b.*\b(fertiliz|yield|recommend)/.test(t)
@@ -229,11 +246,14 @@ function Chatbot() {
     const [isTyping, setIsTyping] = useState(false);
     const [chatStatus, setChatStatus] = useState('online');
     const [isProcessingFile, setIsProcessingFile] = useState(false);
-    const [fileUploadRef, setFileUploadRef] = useState(null);
+    const [isLocatingGps, setIsLocatingGps] = useState(false);
     const messagesEndRef = useRef(null);
+    const chatMessagesRef = useRef(null);
+    const skipInitialChatScrollRef = useRef(true);
     const mapContainerRef = useRef(null);
     const inputRef = useRef(null);
     const fileInputRef = useRef(null);
+    const collectedDataRef = useRef(collectedData);
 
     useEffect(() => {
         document.body.classList.add('chatbot-page-active');
@@ -241,17 +261,23 @@ function Chatbot() {
     }, []);
 
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        const container = chatMessagesRef.current;
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+            return;
+        }
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     };
 
-    // Quick action buttons
+    // Quick action buttons — crop shortcuts use GPS by default ("my location")
     const quickActions = [
-        { text: "🌾 Wheat Fertilizer", action: "I need fertilizer recommendations for wheat" },
-        { text: "🌽 Maize Fertilizer", action: "I need fertilizer recommendations for maize" },
-        { text: "💧 How to apply fertilizer?", action: "How to apply fertilizer?" },
-        { text: "📍 Find My Location", action: "I need help finding my location" },
-        { text: "📎 Attach file", action: "file_upload" },
-        { text: "❓ How does the bot work?", action: "How does the bot work?" }
+        { text: '🌾 Wheat fertilizer for my location', action: 'crop_at_location:wheat' },
+        { text: '🌽 Maize fertilizer for my location', action: 'crop_at_location:maize' },
+        { text: '🌱 Teff fertilizer for my location', action: 'crop_at_location:teff' },
+        { text: '💧 How to apply fertilizer?', action: 'How to apply fertilizer?' },
+        { text: '📍 Use my GPS location', action: 'use_device_location' },
+        { text: '📎 Attach file', action: 'file_upload' },
+        { text: '❓ How does the bot work?', action: 'How does the bot work?' },
     ];
 
     // Initialize chatbot with welcome message
@@ -259,7 +285,7 @@ function Chatbot() {
         const welcomeMessage = {
             id: Date.now(),
             type: 'bot',
-            content: "Hello! 👋 I'm your AI fertilizer advisor. Tell me your crop, farm size in hectares, and location — I'll recommend how much fertilizer to apply and your expected yield. What would you like to know?",
+            content: 'Hello! 👋 I\'m your AI fertilizer advisor. I use your phone GPS at the field by default — try a quick button like "Wheat fertilizer for my location", or tell me crop and farm size (hectares). If GPS isn\'t available, you can use the map or type coordinates. What would you like to know?',
             timestamp: new Date(),
             showQuickActions: true
         };
@@ -269,13 +295,90 @@ function Chatbot() {
 
     // Auto-scroll to bottom when messages change
     useEffect(() => {
+        if (skipInitialChatScrollRef.current) {
+            skipInitialChatScrollRef.current = false;
+            return;
+        }
         scrollToBottom();
-    }, [messages]);
+    }, [messages, isLocatingGps]);
 
-    // Focus input on mount
+    // Focus input on mount without scrolling the page (mobile app shell)
     useEffect(() => {
-        inputRef.current?.focus();
+        inputRef.current?.focus({ preventScroll: true });
     }, []);
+
+    useEffect(() => {
+        collectedDataRef.current = collectedData;
+    }, [collectedData]);
+
+    const applyFarmCoordinates = useCallback((lat, lon) => {
+        const { lat: latStr, lon: lonStr, coordString } = formatFarmCoordinates(lat, lon);
+        setCoordinates({ lat: latStr, lon: lonStr });
+        return coordString;
+    }, []);
+
+    const syncMapToCoordinates = useCallback(
+        (lat, lon) => {
+            if (typeof L === 'undefined' || !map) return;
+            const latNum = typeof lat === 'number' ? lat : parseFloat(lat);
+            const lonNum = typeof lon === 'number' ? lon : parseFloat(lon);
+            if (marker) {
+                marker.setLatLng([latNum, lonNum]);
+            } else {
+                const newMarker = L.marker([latNum, lonNum]).addTo(map);
+                setMarker(newMarker);
+            }
+            map.panTo([latNum, lonNum]);
+        },
+        [map, marker]
+    );
+
+    const appendBotMessage = useCallback((content, extra = {}) => {
+        const botMessage = {
+            id: Date.now() + Math.random(),
+            type: 'bot',
+            content,
+            timestamp: new Date(),
+            ...extra,
+        };
+        setMessages((prev) => [...prev, botMessage]);
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const prefillFromGrantedGps = async () => {
+            if (!isGeolocationSupported()) return;
+            const permission = await queryGeolocationPermission();
+            if (permission !== 'granted') return;
+
+            try {
+                const position = await requestCurrentPosition({
+                    enableHighAccuracy: false,
+                    maximumAge: 120000,
+                    timeout: 15000,
+                });
+                if (cancelled) return;
+                if (!isWithinEthiopia(position.latitude, position.longitude)) return;
+                if (collectedDataRef.current.coordinates) return;
+
+                const coordString = applyFarmCoordinates(
+                    position.latitude,
+                    position.longitude
+                );
+                setCollectedData((prev) =>
+                    prev.coordinates ? prev : { ...prev, coordinates: coordString }
+                );
+            } catch {
+                /* silent — user can tap GPS when ready */
+            }
+        };
+
+        prefillFromGrantedGps();
+        return () => {
+            cancelled = true;
+        };
+    }, [applyFarmCoordinates]);
 
     // Initialize map when showMap becomes true
     const initializeMap = useCallback(() => {
@@ -293,8 +396,8 @@ function Chatbot() {
 
         try {
             const ethiopiaBounds = [
-                [3.4, 33.0], // Southwest coordinates
-                [14.9, 48.0]  // Northeast coordinates
+                [ETHIOPIA_BOUNDS.latMin, ETHIOPIA_BOUNDS.lonMin],
+                [ETHIOPIA_BOUNDS.latMax, ETHIOPIA_BOUNDS.lonMax],
             ];
 
             console.log('Initializing map...');
@@ -326,7 +429,7 @@ function Chatbot() {
                 console.log('Map clicked:', lat, lng);
                 
                 // Only allow clicks within Ethiopia bounds
-                if (lat >= 3.4 && lat <= 14.9 && lng >= 33.0 && lng <= 48.0) {
+                if (isWithinEthiopia(lat, lng)) {
                     // Update marker
                     if (marker) {
                         marker.setLatLng([lat, lng]);
@@ -338,10 +441,6 @@ function Chatbot() {
                     // Update coordinates
                     const newCoordinates = { lat: lat.toFixed(3), lon: lng.toFixed(3) };
                     setCoordinates(newCoordinates);
-                    console.log('Coordinates updated:', newCoordinates);
-                    
-                    // Force re-render by updating a state
-                    setShowMap(prev => prev);
                 } else {
                     console.log('Click outside Ethiopia bounds');
                 }
@@ -537,7 +636,7 @@ If the user asks how the bot works, explain:
 
 🌾 Crop — e.g. ${crops.slice(0, 3).join(', ')}${crops.length > 3 ? ', and more' : ''}
 📐 Farm size — your area in hectares (ha)
-📍 Location — coordinates in Ethiopia, or I can show you a map
+📍 Location — GPS at your field is used automatically when allowed; map or typed coordinates are fallbacks only
 
 I'll calculate fertilizer amounts for your whole farm and your expected harvest. Specific products and kg totals appear in the final recommendation."
 
@@ -549,10 +648,11 @@ SPECIAL INSTRUCTIONS FOR HOW TO APPLY / APPLICATION STRATEGY:
 If the user asks how to apply fertilizer, "how to apply?", application timing/steps, or split urea under rainfall uncertainty: do NOT set get_recommendation, and do NOT tell them to tap or select a button. Reply briefly that you will show the full application strategy (the app displays it automatically). Keep extracted_data null unless they are also starting a new rates request.
 
 SPECIAL INSTRUCTIONS FOR COORDINATES:
-- When asking for coordinates, always offer the map option naturally in your response
-- Include phrases like "Don't you know your exact coordinates? I can help you with a map!" or "Would you like me to show you a map to help you find your location?"
-- If the user responds positively (yes, sure, okay, etc.), set next_action to "show_map"
-- When showing map, include helpful instructions like "Feel free to click on your location on the map"
+- DEFAULT: The app uses phone GPS automatically when the user asks for advice or taps a "for my location" quick button. collected_data.coordinates may already be set — never ask for location again if it is set.
+- If coordinates are missing, tell the user to allow GPS when the browser prompts them. Do NOT lead with the map.
+- FALLBACK ONLY: Mention the map or typing latitude,longitude only if GPS is unavailable or the user explicitly asks for the map or manual coordinates.
+- Set next_action to "show_map" ONLY when the user explicitly wants the map (e.g. "show map", "use map", "pick on map") — not as the default way to get location.
+- When next_action is collect_data and location is still missing, remind them GPS is tried automatically; map/coordinates are backup options.
 
 If the user asks for explainability—such as "Why did you recommend this?" or any similar questions about the reasoning behind the recommendation—respond with an intelligent explanation like the following:
 
@@ -693,72 +793,6 @@ If user asks about other topics, provide general responses and redirect to ferti
         }
     };
 
-    const handleMapLocationSelect = async () => {
-        if (!coordinates.lat || !coordinates.lon) {
-            const mapErrorPrompt = `The user tried to use the selected location but no location was selected on the map. 
-
-Please provide a helpful, conversational response that explains they need to click on the map first to select a location within Ethiopia. Do not use any markdown formatting like ** or * - just plain text.`;
-            
-            const errorResponse = await sendMessageToGroq(mapErrorPrompt);
-            const errorMessage = {
-                id: Date.now() + 1,
-                type: 'bot',
-                content: errorResponse.response || errorResponse,
-                timestamp: new Date()
-            };
-            setMessages(prev => [...prev, errorMessage]);
-            return;
-        }
-
-        // Update collected data with coordinates
-        const updatedData = {
-            ...collectedData,
-            coordinates: `${coordinates.lat},${coordinates.lon}`
-        };
-        setCollectedData(updatedData);
-
-        const missingData = [];
-        if (!updatedData.crop) missingData.push('crop');
-        if (!updatedData.farmSizeHa) missingData.push('farm_size_ha');
-
-        if (missingData.length === 0) {
-            await getCombinedRecommendation(updatedData);
-        } else {
-            const crops = getAvailableCrops();
-
-            let missingDataPrompt = '';
-            if (missingData.length === 2) {
-                missingDataPrompt = `The user selected location (${coordinates.lat}, ${coordinates.lon}) but has not given crop or farm size (hectares).
-
-Available crops: ${crops.join(', ')}
-
-Ask for crop and farm size in ha. Do not ask for fertilizer type. Use only the word "fertilizer" — never say DAP, Urea, or other product names. Plain text only, no markdown.`;
-            } else if (missingData.includes('crop')) {
-                missingDataPrompt = `The user selected location (${coordinates.lat}, ${coordinates.lon}) and farm size ${updatedData.farmSizeHa} ha but not crop.
-
-Available crops: ${crops.join(', ')}
-
-Ask which crop they grow. Plain text only.`;
-            } else if (missingData.includes('farm_size_ha')) {
-                missingDataPrompt = `The user selected location (${coordinates.lat}, ${coordinates.lon}) and crop "${updatedData.crop}" but not farm size.
-
-Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fertilizer" — never product names like DAP or Urea. Plain text only.`;
-            }
-
-            const botResponse = await sendMessageToGroq(missingDataPrompt);
-            const botMessage = {
-                id: Date.now() + 1,
-                type: 'bot',
-                content: botResponse.response || botResponse,
-                timestamp: new Date()
-            };
-
-            setMessages(prev => [...prev, botMessage]);
-            setShowMap(false);
-            setCurrentStep('collecting_data');
-        }
-    };
-
     const getApiValue = (apiResponse) => {
         if (apiResponse && apiResponse.length > 0 && apiResponse[0].value != null) {
             return parseFloat(apiResponse[0].value);
@@ -878,9 +912,217 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
         }
     };
 
+    const continueAfterLocationSet = async (updatedData, latStr, lonStr) => {
+        const missingData = [];
+        if (!updatedData.crop) missingData.push('crop');
+        if (!updatedData.farmSizeHa) missingData.push('farm_size_ha');
+
+        if (missingData.length === 0) {
+            await getCombinedRecommendation(updatedData);
+            return;
+        }
+
+        const crops = getAvailableCrops();
+        let missingDataPrompt = '';
+
+        if (missingData.length === 2) {
+            missingDataPrompt = `The user set their field location (${latStr}, ${lonStr}) but has not given crop or farm size (hectares).
+
+Available crops: ${crops.join(', ')}
+
+Ask for crop and farm size in ha. Do not ask for location again. Do not ask for fertilizer type. Use only the word "fertilizer" — never say DAP, Urea, or other product names. Plain text only, no markdown.`;
+        } else if (missingData.includes('crop')) {
+            missingDataPrompt = `The user set location (${latStr}, ${lonStr}) and farm size ${updatedData.farmSizeHa} ha but not crop.
+
+Available crops: ${crops.join(', ')}
+
+Ask which crop they grow. Do not ask for location again. Plain text only.`;
+        } else if (missingData.includes('farm_size_ha')) {
+            missingDataPrompt = `The user set location (${latStr}, ${lonStr}) and crop "${updatedData.crop}" but not farm size.
+
+Ask for farm area in hectares (ha). Do not ask for location again. Do not ask for fertilizer type. Use only "fertilizer" — never product names like DAP or Urea. Plain text only.`;
+        }
+
+        const botResponse = await sendMessageToGroq(missingDataPrompt);
+        appendBotMessage(botResponse.response || botResponse);
+        setShowMap(false);
+        setCurrentStep('collecting_data');
+    };
+
+    const acquireGpsLocationCore = async () => {
+        if (!isGeolocationSupported()) {
+            return {
+                success: false,
+                reason: 'unsupported',
+                message: geolocationErrorMessage('UNSUPPORTED'),
+            };
+        }
+
+        setIsLocatingGps(true);
+        // Let React paint the "Detecting your location…" message before the browser blocks on GPS
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        try {
+            const position = await requestCurrentPosition({
+                enableHighAccuracy: true,
+                timeout: 20000,
+                maximumAge: 30000,
+            });
+
+            if (!isWithinEthiopia(position.latitude, position.longitude)) {
+                return {
+                    success: false,
+                    reason: 'outside',
+                    message: `Your GPS point (${position.latitude.toFixed(3)}, ${position.longitude.toFixed(3)}) is outside Ethiopia.`,
+                };
+            }
+
+            const coordString = applyFarmCoordinates(position.latitude, position.longitude);
+            const updatedData = {
+                ...collectedDataRef.current,
+                coordinates: coordString,
+            };
+            collectedDataRef.current = updatedData;
+            setCollectedData(updatedData);
+            syncMapToCoordinates(position.latitude, position.longitude);
+
+            const latStr = coordString.split(',')[0];
+            const lonStr = coordString.split(',')[1];
+            const accuracyNote =
+                position.accuracy > 100
+                    ? ' GPS signal looks weak — use the map fallback if this is not your field.'
+                    : '';
+
+            return {
+                success: true,
+                coordString,
+                latStr,
+                lonStr,
+                accuracyNote,
+                updatedData,
+            };
+        } catch (error) {
+            const code = error?.code || 'UNKNOWN';
+            return {
+                success: false,
+                reason: code,
+                message: error.message || geolocationErrorMessage(code),
+            };
+        } finally {
+            setIsLocatingGps(false);
+        }
+    };
+
+    const handleUseDeviceLocation = async ({ continueFlow = true } = {}) => {
+        const result = await acquireGpsLocationCore();
+
+        if (result.success) {
+            if (continueFlow) {
+                await continueAfterLocationSet(
+                    result.updatedData,
+                    result.latStr,
+                    result.lonStr
+                );
+            } else {
+                appendBotMessage(
+                    `Using your current GPS location: ${result.coordString}.${result.accuracyNote || ''}`,
+                    { showQuickActions: true }
+                );
+            }
+            return result;
+        }
+
+        appendBotMessage(appendMapFallbackLines(result.message), {
+            showQuickActions: true,
+        });
+        setCurrentStep('collecting_data');
+        return result;
+    };
+
+    const handleCropAtMyLocationQuickAction = async (crop) => {
+        const cropLabel = formatCropName(crop);
+        const userMessage = {
+            id: Date.now(),
+            type: 'user',
+            content: `${cropLabel} fertilizer for my location`,
+            timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, userMessage]);
+        setAdvisorySessionComplete(false);
+
+        const baseData = {
+            ...collectedDataRef.current,
+            crop,
+        };
+        collectedDataRef.current = baseData;
+        setCollectedData(baseData);
+
+        if (baseData.coordinates) {
+            await continueAfterLocationSet(
+                baseData,
+                baseData.coordinates.split(',')[0],
+                baseData.coordinates.split(',')[1]
+            );
+            return;
+        }
+
+        const gps = await acquireGpsLocationCore();
+        const updatedData = {
+            ...collectedDataRef.current,
+            crop,
+            coordinates: gps.success ? gps.coordString : null,
+        };
+        setCollectedData(updatedData);
+
+        if (gps.success) {
+            await continueAfterLocationSet(updatedData, gps.latStr, gps.lonStr);
+            return;
+        }
+
+        appendBotMessage(
+            appendMapFallbackLines(
+                `${cropLabel} fertilizer for your field — allow GPS when prompted, or use the map or coordinates below.`
+            ),
+            { showQuickActions: true }
+        );
+        setCurrentStep('collecting_data');
+    };
+
+    const handleMapLocationSelect = async () => {
+        if (!coordinates.lat || !coordinates.lon) {
+            const mapErrorPrompt = `The user tried to use the selected location but no location was selected on the map. 
+
+Please provide a helpful, conversational response that explains they need to click on the map first to select a location within Ethiopia. Do not use any markdown formatting like ** or * - just plain text.`;
+
+            const errorResponse = await sendMessageToGroq(mapErrorPrompt);
+            appendBotMessage(errorResponse.response || errorResponse);
+            return;
+        }
+
+        const updatedData = {
+            ...collectedDataRef.current,
+            coordinates: `${coordinates.lat},${coordinates.lon}`,
+        };
+        setCollectedData(updatedData);
+
+        await continueAfterLocationSet(updatedData, coordinates.lat, coordinates.lon);
+    };
+
     const handleQuickAction = (action) => {
-        if (action === "file_upload") {
+        if (action === 'file_upload') {
             handleFileUpload();
+        } else if (action === 'use_device_location') {
+            const userMessage = {
+                id: Date.now(),
+                type: 'user',
+                content: '📍 Use my current GPS location',
+                timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, userMessage]);
+            handleUseDeviceLocation({ continueFlow: true });
+        } else if (action.startsWith('crop_at_location:')) {
+            const crop = action.slice('crop_at_location:'.length);
+            handleCropAtMyLocationQuickAction(crop);
         } else {
             setInputMessage(action);
             handleSendMessage(action);
@@ -1334,7 +1576,11 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
 
             if (startingFreshAdvisory) {
                 setAdvisorySessionComplete(false);
-                setCollectedData(emptyCollectedData());
+                const next = emptyCollectedData();
+                if (coordinates.lat && coordinates.lon) {
+                    next.coordinates = `${coordinates.lat},${coordinates.lon}`;
+                }
+                setCollectedData(next);
             }
 
             // Create conversation context for Groq
@@ -1382,14 +1628,45 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
                 }
             }
 
-            setCollectedData(newCollectedData);
+            let workingData = { ...newCollectedData };
+            if (
+                startingFreshAdvisory &&
+                coordinates.lat &&
+                coordinates.lon &&
+                !workingData.coordinates
+            ) {
+                workingData.coordinates = `${coordinates.lat},${coordinates.lon}`;
+            }
+
+            const userTypedCoords = COORDINATE_IN_TEXT_RE.test(textToSend);
+            const shouldTryDefaultGps =
+                !workingData.coordinates &&
+                !userTypedCoords &&
+                (isExplicitRecommendationRequest(textToSend) ||
+                    workingData.crop ||
+                    (groqResponse.missing_data || []).includes('coordinates') ||
+                    groqResponse.next_action === 'show_map');
+
+            let gpsPrefillNote = '';
+            if (shouldTryDefaultGps) {
+                const gps = await acquireGpsLocationCore();
+                if (gps.success) {
+                    workingData = { ...workingData, coordinates: gps.coordString };
+                    gpsPrefillNote = `Using your GPS location (${gps.coordString}).${gps.accuracyNote || ''}\n\n`;
+                }
+            }
+
+            setCollectedData(workingData);
 
             let botResponse = groqResponse.response;
+            if (gpsPrefillNote) {
+                botResponse = gpsPrefillNote + botResponse;
+            }
 
             const readyForRecommendation =
-                newCollectedData.crop &&
-                newCollectedData.coordinates &&
-                newCollectedData.farmSizeHa > 0;
+                workingData.crop &&
+                workingData.coordinates &&
+                workingData.farmSizeHa > 0;
 
             // Never auto-run just because slots are filled (that caused "ok" / how-to loops).
             // Require get_recommendation from the model, with a narrow fallback when the user
@@ -1410,12 +1687,16 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
 
             if (shouldRunRecommendation) {
                 setAdvisorySessionComplete(false);
-                await getCombinedRecommendation(newCollectedData);
+                await getCombinedRecommendation(workingData);
                 return;
-            } else if (groqResponse.next_action === 'show_map') {
-                // Add map button to response with helpful instructions
-                botResponse += '\n\n🗺️ Click here to open map and find your Location\n\n💡 Feel free to click on your location on the map within Ethiopia to select it.';
-                setCurrentStep('coordinates');
+            }
+
+            if (
+                !workingData.coordinates &&
+                (shouldTryDefaultGps || groqResponse.next_action === 'show_map')
+            ) {
+                botResponse = appendMapFallbackLines(botResponse);
+                setCurrentStep('collecting_data');
             } else if (groqResponse.next_action === 'collect_data') {
                 setCurrentStep('collecting_data');
             }
@@ -1464,9 +1745,34 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
                     </div>
                     <div className="chat-info">
                         <h3>Fertilizer AI Assistant</h3>
-                        <p className="status-text">Online • Ready to help</p>
+                        <p className="status-text">
+                            {isLocatingGps
+                                ? 'Detecting your location…'
+                                : collectedData.coordinates
+                                  ? `Field location set • ${collectedData.coordinates}`
+                                  : 'Online • Ready to help'}
+                        </p>
                     </div>
                     <div className="chat-actions">
+                        <button
+                            type="button"
+                            className="chat-gps-btn"
+                            title="Use phone GPS at your field"
+                            disabled={isLocatingGps || isLoading}
+                            onClick={() => handleUseDeviceLocation({ continueFlow: false })}
+                        >
+                            {isLocatingGps ? '…' : '📍 GPS'}
+                        </button>
+                        {collectedData.coordinates && (
+                            <button
+                                type="button"
+                                className="chat-gps-btn chat-gps-btn--secondary"
+                                title="Change location on map"
+                                onClick={() => setShowMap(true)}
+                            >
+                                🗺️
+                            </button>
+                        )}
                         <button className="action-btn" title="Clear chat">
                             🗑️
                         </button>
@@ -1475,7 +1781,7 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
             </div>
 
             {/* Chat Messages */}
-            <div className="chat-messages">
+            <div className="chat-messages" ref={chatMessagesRef}>
                 {messages.map((message) => (
                     <div key={message.id} className={`message ${message.type}`}>
                         {message.type === 'bot' && (
@@ -1487,14 +1793,19 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
                             <div className="message-content">
                                 {message.content.split('\n').map((line, index) => {
                                     // Check if this line contains the map button
-                                    if (line.includes('🗺️ Click here to open map and find your Location')) {
+                                    if (
+                                        line.includes(MAP_FALLBACK_LINE) ||
+                                        line.includes('🗺️ Click here to open map and find your Location')
+                                    ) {
                                         return (
                                             <div key={index}>
-                                                <button 
+                                                <button
                                                     className="map-button"
                                                     onClick={() => setShowMap(true)}
                                                 >
-                                                    🗺️ Click here to open map and find your Location
+                                                    {line.includes(MAP_FALLBACK_LINE)
+                                                        ? MAP_FALLBACK_LINE
+                                                        : '🗺️ Click here to open map and find your Location'}
                                                 </button>
                                             </div>
                                         );
@@ -1521,7 +1832,20 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
                         </div>
                     </div>
                 ))}
-                {isLoading && (
+                {isLocatingGps && (
+                    <div className="message bot">
+                        <div className="message-avatar">
+                            <div className="avatar-icon">🤖</div>
+                        </div>
+                        <div className="message-bubble">
+                            <div className="file-processing-indicator gps-locating-indicator">
+                                <div className="processing-spinner" aria-hidden="true" />
+                                <span>Detecting your location…</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {isLoading && !isLocatingGps && (
                     <div className="message bot">
                         <div className="message-avatar">
                             <div className="avatar-icon">🤖</div>
@@ -1555,7 +1879,7 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
             {showMap && (
                 <div className="map-container">
                     <div className="map-instructions">
-                        <p>💡 Click anywhere on the map within Ethiopia to select your location</p>
+                        <p>💡 GPS is used first at your field. Map fallback: click within Ethiopia, or use GPS again</p>
                         {/* Move buttons to top for better visibility on small screens */}
                         <div className="map-top-controls">
                             {coordinates.lat && coordinates.lon && (
@@ -1564,6 +1888,14 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
                                 </div>
                             )}
                             <div className="map-top-buttons">
+                                <button
+                                    type="button"
+                                    className="btn btn-outline-primary btn-sm"
+                                    onClick={() => handleUseDeviceLocation({ continueFlow: false })}
+                                    disabled={isLocatingGps}
+                                >
+                                    {isLocatingGps ? 'Locating…' : '📍 Use GPS'}
+                                </button>
                                 <button 
                                     className="btn btn-primary btn-sm"
                                     onClick={handleMapLocationSelect}
@@ -1603,7 +1935,11 @@ Ask for farm area in hectares (ha). Do not ask for fertilizer type. Use only "fe
                         value={inputMessage}
                         onChange={(e) => setInputMessage(e.target.value)}
                         onKeyPress={handleKeyPress}
-                        placeholder={currentStep === 'coordinates' ? "Enter coordinates (lat,lon) or click on map above..." : "Type your message here..."}
+                        placeholder={
+                            currentStep === 'coordinates'
+                                ? 'GPS preferred — or enter coordinates (lat,lon) as fallback…'
+                                : 'Type your message here…'
+                        }
                         rows="1"
                     />
                     <button

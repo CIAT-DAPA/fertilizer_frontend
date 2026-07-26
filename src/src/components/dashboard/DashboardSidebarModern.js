@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { dashboardNavItemsModern } from './dashboardNavConfigModern';
@@ -17,6 +17,10 @@ function DashboardSidebarModern({
   const countryLabel = locationPairLabel(report.country);
   const showEthiopiaFlag = isEthiopiaCountry(report.country, countryLabel);
   const [openGroups, setOpenGroups] = useState({});
+
+  useEffect(() => {
+    setOpenGroups({});
+  }, [location.pathname]);
 
   const isItemDisabled = (item) => {
     if (item.requiresType && report.type !== item.requiresType) return true;
@@ -38,11 +42,10 @@ function DashboardSidebarModern({
   };
 
   const isGroupOpen = (item) => {
-    const childActive = item.children?.some((c) => location.pathname === c.to);
     if (openGroups[item.groupId] !== undefined) {
       return openGroups[item.groupId];
     }
-    return Boolean(childActive);
+    return false;
   };
 
   const renderNavItem = (item) => {

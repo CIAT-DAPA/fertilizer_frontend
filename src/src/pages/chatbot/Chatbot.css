@@ -124,6 +124,33 @@ body.chatbot-page-active:not(.app-shell-active) #root {
 .chat-actions {
     display: flex;
     gap: 10px;
+    align-items: center;
+}
+
+.chat-gps-btn {
+    border: 1px solid rgba(102, 126, 234, 0.45);
+    background: rgba(255, 255, 255, 0.9);
+    color: #4a5568;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.chat-gps-btn:hover:not(:disabled) {
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
+}
+
+.chat-gps-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.chat-gps-btn--secondary {
+    padding: 6px 8px;
 }
 
 .action-btn {
@@ -289,7 +316,8 @@ body.chatbot-page-active:not(.app-shell-active) #root {
 }
 
 /* File Processing Indicator */
-.file-processing-indicator {
+.file-processing-indicator,
+.gps-locating-indicator {
     display: flex;
     align-items: center;
     gap: 10px;

@@ -10,6 +10,11 @@ import {
     isWithinEthiopia,
     ETHIOPIA_BOUNDS,
 } from '../../utils/fertilizerLayerUtils';
+import {
+    geolocationErrorMessage,
+    isGeolocationSupported,
+    requestCurrentPosition,
+} from '../../utils/geolocation';
 import './FertilizerLookup.css';
 
 /* global L */
@@ -27,6 +32,8 @@ function FertilizerLookup() {
     const [error, setError] = useState('');
     const [results, setResults] = useState(null);
     const [mapReady, setMapReady] = useState(false);
+    const [isLocatingGps, setIsLocatingGps] = useState(false);
+    const [gpsAutoEnabled, setGpsAutoEnabled] = useState(false);
 
     const mapContainerRef = useRef(null);
     const mapRef = useRef(null);
@@ -65,6 +72,96 @@ function FertilizerLookup() {
         mapRef.current.panTo([latitude, longitude]);
     }, []);
 
+    const applyCoordinatesFromPosition = useCallback((latitude, longitude) => {
+        const latStr = latitude.toFixed(3);
+        const lonStr = longitude.toFixed(3);
+        setLat(latStr);
+        setLon(lonStr);
+        setResults(null);
+        setError('');
+
+        if (!mapRef.current || !isWithinEthiopia(latitude, longitude)) return;
+
+        if (markerRef.current) {
+            markerRef.current.setLatLng([latitude, longitude]);
+        } else {
+            markerRef.current = L.marker([latitude, longitude]).addTo(mapRef.current);
+        }
+        mapRef.current.panTo([latitude, longitude]);
+    }, []);
+
+    const refreshGpsLocation = useCallback(
+        async ({ cancelled = () => false, showWeakSignalWarning = true } = {}) => {
+            if (!isGeolocationSupported()) {
+                setError(geolocationErrorMessage('UNSUPPORTED'));
+                return { success: false };
+            }
+
+            setError('');
+            setResults(null);
+            setIsLocatingGps(true);
+            await new Promise((resolve) => setTimeout(resolve, 0));
+
+            try {
+                const position = await requestCurrentPosition({
+                    enableHighAccuracy: true,
+                    timeout: 20000,
+                    maximumAge: gpsAutoEnabled ? 15000 : 30000,
+                });
+
+                if (cancelled()) return { success: false };
+
+                if (!isWithinEthiopia(position.latitude, position.longitude)) {
+                    setError(
+                        `GPS location (${position.latitude.toFixed(3)}, ${position.longitude.toFixed(3)}) is outside Ethiopia. Turn off Use GPS and pick a point on the map.`
+                    );
+                    return { success: false };
+                }
+
+                applyCoordinatesFromPosition(position.latitude, position.longitude);
+
+                if (showWeakSignalWarning && position.accuracy > 100) {
+                    setError(
+                        'GPS signal looks weak. Confirm the pin on the map or try again outdoors.'
+                    );
+                }
+
+                return {
+                    success: true,
+                    lat: position.latitude,
+                    lon: position.longitude,
+                };
+            } catch (err) {
+                if (!cancelled()) {
+                    setError(
+                        err.message ||
+                            geolocationErrorMessage(err.code) ||
+                            'Could not detect your location. Turn off Use GPS to enter coordinates manually.'
+                    );
+                }
+                return { success: false };
+            } finally {
+                setIsLocatingGps(false);
+            }
+        },
+        [applyCoordinatesFromPosition, gpsAutoEnabled]
+    );
+
+    useEffect(() => {
+        if (!gpsAutoEnabled) return undefined;
+
+        let cancelled = false;
+
+        const runAutoGps = async () => {
+            await refreshGpsLocation({ cancelled: () => cancelled });
+        };
+
+        runAutoGps();
+        return () => {
+            cancelled = true;
+        };
+    }, [gpsAutoEnabled, refreshGpsLocation]);
+
     const initializeMap = useCallback(() => {
         if (typeof L === 'undefined' || !mapContainerRef.current || mapRef.current) {
             return;
@@ -98,6 +195,8 @@ function FertilizerLookup() {
             const clickLon = e.latlng.lng;
             if (!isWithinEthiopia(clickLat, clickLon)) return;
 
+            setGpsAutoEnabled(false);
+
             if (markerRef.current) {
                 markerRef.current.setLatLng([clickLat, clickLon]);
             } else {
@@ -112,6 +211,9 @@ function FertilizerLookup() {
         mapRef.current = map;
         setMapReady(true);
 
+        requestAnimationFrame(() => {
+            map.invalidateSize();
+        });
     }, []);
 
     useEffect(() => {
@@ -126,7 +228,26 @@ function FertilizerLookup() {
         };
     }, [initializeMap]);
 
+    useEffect(() => {
+        if (!mapRef.current) return undefined;
+
+        const refreshMapSize = () => {
+            window.requestAnimationFrame(() => {
+                mapRef.current?.invalidateSize();
+            });
+        };
+
+        window.addEventListener('resize', refreshMapSize);
+        window.addEventListener('orientationchange', refreshMapSize);
+        return () => {
+            window.removeEventListener('resize', refreshMapSize);
+            window.removeEventListener('orientationchange', refreshMapSize);
+        };
+    }, [mapReady]);
+
     const handleCoordInput = (field, value) => {
+        if (gpsAutoEnabled) return;
+
         if (field === 'lat') setLat(value);
         else setLon(value);
 
@@ -145,6 +266,14 @@ function FertilizerLookup() {
         }
     };
 
+    const handleGpsToggle = (enabled) => {
+        setGpsAutoEnabled(enabled);
+        if (!enabled) {
+            setIsLocatingGps(false);
+            setError('');
+        }
+    };
+
     const fetchCoordinateValue = async (layer, latitude, longitude, date) => {
         const coorStr = JSON.stringify([{ lat: latitude, lon: longitude }]);
         const response = await axios.post(
@@ -160,15 +289,27 @@ function FertilizerLookup() {
         setError('');
         setResults(null);
 
-        const parsedLat = parseFloat(lat);
-        const parsedLon = parseFloat(lon);
+        let parsedLat = parseFloat(lat);
+        let parsedLon = parseFloat(lon);
+
+        if (gpsAutoEnabled) {
+            const gps = await refreshGpsLocation();
+            if (gps.success) {
+                parsedLat = gps.lat;
+                parsedLon = gps.lon;
+            }
+        }
 
         if (!crop) {
             setError('Please select a crop.');
             return;
         }
         if (Number.isNaN(parsedLat) || Number.isNaN(parsedLon)) {
-            setError('Please enter valid latitude and longitude, or click on the map.');
+            setError(
+                gpsAutoEnabled
+                    ? 'Could not read GPS location. Allow location access or turn off Use GPS to enter coordinates manually.'
+                    : 'Enter valid latitude and longitude, or click on the map.'
+            );
             return;
         }
         if (!isWithinEthiopia(parsedLat, parsedLon)) {
@@ -251,13 +392,17 @@ function FertilizerLookup() {
     };
 
     const handleClear = () => {
-        setLat('');
-        setLon('');
         setResults(null);
         setError('');
         if (markerRef.current && mapRef.current) {
             mapRef.current.removeLayer(markerRef.current);
             markerRef.current = null;
+        }
+        if (gpsAutoEnabled) {
+            refreshGpsLocation();
+        } else {
+            setLat('');
+            setLon('');
         }
     };
 
@@ -266,9 +411,9 @@ function FertilizerLookup() {
             <header className="fert-lookup__hero">
                 <h1>Site fertilizer advisory</h1>
                 <p>
-                    Choose year and crop, set your field location on the map or by coordinates, and
-                    view all site-specific dominant-scenario rates (DAP, Urea, NPS, compost,
-                    vermi-compost, and expected yield).
+                    Choose year and crop, use GPS at your field (or pick on the map / type
+                    coordinates), and view all site-specific dominant-scenario rates (DAP, Urea, NPS,
+                    compost, vermi-compost, and expected yield).
                 </p>
             </header>
 
@@ -316,8 +461,47 @@ function FertilizerLookup() {
                         </select>
                     </div>
 
-                    <div className="fert-lookup__field">
-                        <label>Location (Ethiopia)</label>
+                    <div className="fert-lookup__field fert-lookup__field--location">
+                        <div className="fert-lookup__location-head">
+                            <span className="fert-lookup__location-label">Location (Ethiopia)</span>
+                            <div className="fert-lookup__gps-toggle-wrap">
+                                {isLocatingGps && (
+                                    <span className="fert-lookup__gps-detecting" role="status">
+                                        Detecting…
+                                    </span>
+                                )}
+                                <span className="fert-lookup__gps-toggle-text">Use GPS</span>
+                                <label
+                                    className="fert-lookup__gps-toggle-control"
+                                    title={
+                                        gpsAutoEnabled
+                                            ? 'Live GPS on — coordinates update automatically'
+                                            : 'Manual location — map or type coordinates'
+                                    }
+                                >
+                                    <input
+                                        type="checkbox"
+                                        role="switch"
+                                        checked={gpsAutoEnabled}
+                                        onChange={(e) => handleGpsToggle(e.target.checked)}
+                                        disabled={loading}
+                                        aria-label={
+                                            gpsAutoEnabled
+                                                ? 'Use GPS on, automatic location'
+                                                : 'Use GPS off, manual location'
+                                        }
+                                    />
+                                    <span className="fert-lookup__gps-switch" aria-hidden="true" />
+                                    <span
+                                        className={`fert-lookup__gps-state${
+                                            gpsAutoEnabled ? ' fert-lookup__gps-state--on' : ' fert-lookup__gps-state--off'
+                                        }`}
+                                    >
+                                        {gpsAutoEnabled ? 'On' : 'Off'}
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
                         <div className="fert-lookup__coords">
                             <div>
                                 <label htmlFor="fert-lat" className="visually-hidden">
@@ -327,9 +511,12 @@ function FertilizerLookup() {
                                     id="fert-lat"
                                     type="number"
                                     step="any"
+                                    inputMode="decimal"
                                     placeholder="Latitude"
                                     value={lat}
                                     onChange={(e) => handleCoordInput('lat', e.target.value)}
+                                    disabled={gpsAutoEnabled || isLocatingGps}
+                                    readOnly={gpsAutoEnabled}
                                 />
                             </div>
                             <div>
@@ -340,9 +527,12 @@ function FertilizerLookup() {
                                     id="fert-lon"
                                     type="number"
                                     step="any"
+                                    inputMode="decimal"
                                     placeholder="Longitude"
                                     value={lon}
                                     onChange={(e) => handleCoordInput('lon', e.target.value)}
+                                    disabled={gpsAutoEnabled || isLocatingGps}
+                                    readOnly={gpsAutoEnabled}
                                 />
                             </div>
                         </div>
@@ -375,7 +565,7 @@ function FertilizerLookup() {
                     )}
 
                     {!loadingLayers && advisoryLayers.length > 0 && (
-                        <p className="fert-lookup__meta" style={{ marginTop: '1rem' }}>
+                        <p className="fert-lookup__meta fert-lookup__meta--panel">
                             {advisoryLayers.length} products for {formatCropName(crop)} · forecast{' '}
                             {forecastDateFromYear(year)} · dominant scenario
                         </p>
@@ -384,8 +574,8 @@ function FertilizerLookup() {
 
                 <section className="fert-lookup__map-wrap">
                     <p className="fert-lookup__map-hint">
-                        <i className="bi bi-geo-alt-fill" aria-hidden="true" /> Click on the map
-                        within Ethiopia to set latitude and longitude
+                        <i className="bi bi-crosshair" aria-hidden="true" /> Use GPS toggle
+                        (on = live location; off = map or type coordinates)
                         {!mapReady && typeof L === 'undefined' && (
                             <span> — map loading; you can still type coordinates.</span>
                         )}

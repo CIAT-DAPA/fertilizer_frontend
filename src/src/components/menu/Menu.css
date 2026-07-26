@@ -186,20 +186,47 @@
 }
 
 .hafas-header__icon-btn {
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 8px;
-  padding: 0.25rem 0.5rem;
+  padding: 0.35rem 0.55rem;
+  flex-shrink: 0;
 }
 
-.hafas-header__icon-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+.hafas-header__icon-btn .bi {
+  font-size: 1.35rem;
+  line-height: 1;
   color: #fff;
+}
+
+.hafas-header__icon-btn:hover,
+.hafas-header__icon-btn:focus-visible {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.75);
 }
 
 .hafas-header__toggler {
-  border-color: rgba(255, 255, 255, 0.35);
-  padding: 0.3rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.12);
+  padding: 0.35rem 0.55rem;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.hafas-header__toggler:focus {
+  box-shadow: 0 0 0 2px rgba(82, 183, 136, 0.55);
+}
+
+.hafas-header__toggler .navbar-toggler-icon {
+  width: 1.35rem;
+  height: 1.35rem;
 }
 
 .hafas-header__mode-badge {
@@ -234,6 +261,28 @@
 @media (max-width: 991.98px) {
   .hafas-header__brand-text {
     font-size: 0.95rem;
+  }
+
+  .hafas-header__container {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .hafas-header__icon-btn {
+    order: 0;
+  }
+
+  .hafas-header__brand {
+    order: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: flex-start;
+    margin-right: 0.25rem;
+  }
+
+  .hafas-header__toggler {
+    order: 2;
+    margin-left: auto;
   }
 
   .hafas-header__collapse,

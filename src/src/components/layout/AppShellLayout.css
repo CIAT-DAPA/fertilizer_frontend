@@ -86,6 +86,28 @@ body.app-shell-active #root {
   }
 }
 
+/* Chatbot + long pages inside app shell — start at top, fit viewport */
+body.app-shell-active .chatbot-wrapper {
+  margin: 0 auto 1rem !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: min( calc(100vh - var(--app-header-height) - 2.5rem), 900px );
+  min-height: 360px;
+}
+
+@media (max-width: 991.98px) {
+  body.app-shell-active .chatbot-wrapper {
+    height: calc(100vh - var(--app-header-height) - 1.5rem);
+    min-height: 320px;
+  }
+
+  body.app-shell-active .chatbot-wrapper .chat-header-content {
+    flex-direction: row;
+    flex-wrap: wrap;
+    text-align: left;
+  }
+}
+
 @media (min-width: 1200px) {
   .app-shell__main {
     padding: 1.25rem calc(1.75rem + 80px) 2.5rem;
