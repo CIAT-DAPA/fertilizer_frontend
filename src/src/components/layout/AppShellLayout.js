@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import MenuDashboard from '../menu/MenuDashboard';
 import DashboardSidebarModern from '../dashboard/DashboardSidebarModern';
 import Footer from '../footer/Footer';
+import { collapseMobileHeaderNav } from '../menu/collapseMobileHeaderNav';
 import '../dashboard/dashboardTheme.css';
 import './AppShellLayout.css';
 
@@ -24,6 +25,8 @@ function AppShellLayout() {
 
   useEffect(() => {
     setMobileOpen(false);
+    collapseMobileHeaderNav('navbarCollapseDash');
+    window.scrollTo(0, 0);
   }, [location.pathname]);
 
   useEffect(() => {

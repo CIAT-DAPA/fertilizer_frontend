@@ -9,7 +9,7 @@ The bot collects **three** inputs (no fertilizer choice):
 
 1. **Crop type** (e.g. maize, wheat)
 2. **Farm size** in hectares (ha)
-3. **Location** — coordinates in Ethiopia or map selection
+3. **Location** — phone GPS (automatic when allowed), map pick, or typed coordinates in Ethiopia
 
 The system then:
 
@@ -39,9 +39,10 @@ Matching logic lives in `parseLayerName` and `findMatchingLayer` in `Chatbot.js`
 - **Groq** — conversation and field extraction (`crop`, `farm_size_ha`, `coordinates`)
 - **Coordinates** — `POST .../coordinates/{layer}/{coorStr}/{date}` returns kg/ha (or yield kg/ha)
 
-## Map and bulk CSV
+## Map, GPS, and bulk CSV
 
-- **Map** — click within Ethiopia bounds; then provide crop and farm size if missing
+- **GPS (default)** — quick buttons like "Wheat fertilizer for my location" and automatic GPS when you ask for advice; header **GPS** to refresh location
+- **Map / coordinates (fallback)** — if GPS is blocked or unavailable
 - **CSV upload** — input columns: `Crop Type`, `latitude`, `longitude`. Output adds `DAP (kg/ha)` and `Urea (kg/ha)` per row (site-specific rates from the API; no farm size in bulk mode)
 
 ### CSV input format

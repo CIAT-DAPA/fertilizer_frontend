@@ -1,10 +1,17 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import './Menu.css';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import HeaderPrimaryNav from './HeaderPrimaryNav';
+import { collapseMobileHeaderNav } from './collapseMobileHeaderNav';
 import logo_nextgen from '../../assets/images/logo_nextgen.png';
 
 function MenuDashboard({ onSidebarToggle, sidebarOpen }) {
+  const location = useLocation();
+
+  useEffect(() => {
+    collapseMobileHeaderNav('navbarCollapseDash');
+  }, [location.pathname]);
+
   return (
     <header className="hafas-header">
       <nav className="navbar navbar-expand-lg navbar-dark hafas-header__bar fixed-top">

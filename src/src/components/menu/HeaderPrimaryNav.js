@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { collapseMobileHeaderNav } from './collapseMobileHeaderNav';
 
 export const API_LINKS = [
   {
@@ -14,8 +15,9 @@ export const API_LINKS = [
   },
 ];
 
-function HeaderPrimaryNav({ idPrefix = 'nav' }) {
+function HeaderPrimaryNav({ idPrefix = 'nav', mobileCollapseId = 'navbarCollapseDash' }) {
   const dropdownId = `${idPrefix}-apis-dropdown`;
+  const closeMobileNav = () => collapseMobileHeaderNav(mobileCollapseId);
 
   return (
     <ul className="navbar-nav hafas-header__nav me-auto mb-2 mb-md-0">
@@ -24,25 +26,26 @@ function HeaderPrimaryNav({ idPrefix = 'nav' }) {
           className={({ isActive }) => `nav-link hafas-header__link${isActive ? ' active' : ''}`}
           to="/"
           end
+          onClick={closeMobileNav}
         >
           Home
         </NavLink>
       </li>
 
       <li className="nav-item">
-        <NavLink className="hafas-header__link nav-link" to="/about">
+        <NavLink className="hafas-header__link nav-link" to="/about" onClick={closeMobileNav}>
           About
         </NavLink>
       </li>
 
       <li className="nav-item">
-        <NavLink className="hafas-header__link nav-link" to="/partners">
+        <NavLink className="hafas-header__link nav-link" to="/partners" onClick={closeMobileNav}>
           Partners
         </NavLink>
       </li>
 
       <li className="nav-item">
-        <NavLink className="hafas-header__link nav-link" to="/methodology">
+        <NavLink className="hafas-header__link nav-link" to="/methodology" onClick={closeMobileNav}>
           Methodology
         </NavLink>
       </li>
@@ -76,13 +79,13 @@ function HeaderPrimaryNav({ idPrefix = 'nav' }) {
       </li>
 
       <li className="nav-item">
-        <NavLink className="hafas-header__link nav-link" to="/success-stories">
+        <NavLink className="hafas-header__link nav-link" to="/success-stories" onClick={closeMobileNav}>
           Success Stories
         </NavLink>
       </li>
 
       <li className="nav-item">
-        <NavLink className="hafas-header__link nav-link" to="/chatbot">
+        <NavLink className="hafas-header__link nav-link" to="/chatbot" onClick={closeMobileNav}>
           Chatbot
         </NavLink>
       </li>
