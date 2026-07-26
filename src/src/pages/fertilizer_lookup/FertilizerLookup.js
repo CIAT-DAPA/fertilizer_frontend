@@ -572,6 +572,64 @@ function FertilizerLookup() {
                     )}
                 </section>
 
+                {(loading || results) && (
+                    <section className="fert-lookup__results" aria-live="polite">
+                        {loading && (
+                            <div className="fert-lookup__loading">
+                                <div className="fert-lookup__spinner" />
+                                <span>Fetching site-specific rates for all products…</span>
+                            </div>
+                        )}
+
+                        {results && !loading && (
+                            <>
+                                <div className="fert-lookup__results-header">
+                                    <div>
+                                        <h2>
+                                            Recommendations for {formatCropName(results.crop)}
+                                        </h2>
+                                        <p className="fert-lookup__meta">
+                                            {results.lat}, {results.lon} · Year {results.year} (
+                                            {results.date}) · dominant layers
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="fert-lookup__btn fert-lookup__btn--secondary"
+                                        onClick={handleDownloadCsv}
+                                    >
+                                        <i className="bi bi-download" aria-hidden="true" />
+                                        Download CSV
+                                    </button>
+                                </div>
+
+                                <div className="fert-lookup__grid">
+                                    {results.rows.map((row) => (
+                                        <article
+                                            key={row.productKey}
+                                            className={`fert-lookup__card${
+                                                row.productKey === 'yield'
+                                                    ? ' fert-lookup__card--yield'
+                                                    : ''
+                                            }${row.displayValue == null ? ' fert-lookup__card--na' : ''}`}
+                                        >
+                                            <div className="fert-lookup__card-label">{row.label}</div>
+                                            <div className="fert-lookup__card-value">
+                                                {row.displayValue ?? 'No data'}
+                                            </div>
+                                            {row.displayValue != null && (
+                                                <div className="fert-lookup__card-unit">
+                                                    {row.unit}
+                                                </div>
+                                            )}
+                                        </article>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </section>
+                )}
+
                 <section className="fert-lookup__map-wrap">
                     <p className="fert-lookup__map-hint">
                         <i className="bi bi-crosshair" aria-hidden="true" /> Use GPS toggle
@@ -583,64 +641,6 @@ function FertilizerLookup() {
                     <div ref={mapContainerRef} className="fert-lookup__map" />
                 </section>
             </div>
-
-            {(loading || results) && (
-                <section className="fert-lookup__results" aria-live="polite">
-                    {loading && (
-                        <div className="fert-lookup__loading">
-                            <div className="fert-lookup__spinner" />
-                            <span>Fetching site-specific rates for all products…</span>
-                        </div>
-                    )}
-
-                    {results && !loading && (
-                        <>
-                            <div className="fert-lookup__results-header">
-                                <div>
-                                    <h2>
-                                        Recommendations for {formatCropName(results.crop)}
-                                    </h2>
-                                    <p className="fert-lookup__meta">
-                                        {results.lat}, {results.lon} · Year {results.year} (
-                                        {results.date}) · dominant layers
-                                    </p>
-                                </div>
-                                <button
-                                    type="button"
-                                    className="fert-lookup__btn fert-lookup__btn--secondary"
-                                    onClick={handleDownloadCsv}
-                                >
-                                    <i className="bi bi-download" aria-hidden="true" />
-                                    Download CSV
-                                </button>
-                            </div>
-
-                            <div className="fert-lookup__grid">
-                                {results.rows.map((row) => (
-                                    <article
-                                        key={row.productKey}
-                                        className={`fert-lookup__card${
-                                            row.productKey === 'yield'
-                                                ? ' fert-lookup__card--yield'
-                                                : ''
-                                        }${row.displayValue == null ? ' fert-lookup__card--na' : ''}`}
-                                    >
-                                        <div className="fert-lookup__card-label">{row.label}</div>
-                                        <div className="fert-lookup__card-value">
-                                            {row.displayValue ?? 'No data'}
-                                        </div>
-                                        {row.displayValue != null && (
-                                            <div className="fert-lookup__card-unit">
-                                                {row.unit}
-                                            </div>
-                                        )}
-                                    </article>
-                                ))}
-                            </div>
-                        </>
-                    )}
-                </section>
-            )}
         </div>
     );
 }

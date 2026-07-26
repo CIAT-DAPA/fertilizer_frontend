@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -115,6 +116,25 @@ const buildDismissMessage = () =>
 
 const MAP_FALLBACK_LINE =
     '🗺️ Map fallback — click here to pick your field if GPS is unavailable';
+
+const RATE_LIMIT_LOOKUP_MESSAGE =
+    'API rate limit reached. Kindly use Fertilizer Lookup for now.';
+
+const FERTILIZER_LOOKUP_PATH = '/fertilizer_lookup';
+
+const isLlmRateLimitError = (status, errorData) => {
+    if (status === 429) return true;
+    const blob = JSON.stringify(errorData ?? '').toLowerCase();
+    return blob.includes('rate limit') || blob.includes('rate_limit');
+};
+
+const buildRateLimitLookupResponse = () => ({
+    response: RATE_LIMIT_LOOKUP_MESSAGE,
+    extracted_data: {},
+    missing_data: [],
+    next_action: 'collect_data',
+    showFertilizerLookupLink: true,
+});
 
 const appendMapFallbackLines = (text) =>
     `${text}\n\n${MAP_FALLBACK_LINE}\n\n💡 Or type coordinates as latitude,longitude`;
@@ -343,6 +363,22 @@ function Chatbot() {
         };
         setMessages((prev) => [...prev, botMessage]);
     }, []);
+
+    const appendLlmBotMessage = useCallback(
+        (llmResult) => {
+            if (llmResult == null) return;
+            if (typeof llmResult === 'string') {
+                appendBotMessage(llmResult);
+                return;
+            }
+            appendBotMessage(llmResult.response || '', {
+                ...(llmResult.showFertilizerLookupLink
+                    ? { showFertilizerLookupLink: true }
+                    : {}),
+            });
+        },
+        [appendBotMessage]
+    );
 
     useEffect(() => {
         let cancelled = false;
@@ -700,6 +736,9 @@ If user asks about other topics, provide general responses and redirect to ferti
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
                 console.error('Groq API error response:', response.status, errorData);
+                if (isLlmRateLimitError(response.status, errorData)) {
+                    return buildRateLimitLookupResponse();
+                }
                 throw new Error(`API request failed: ${response.status} - ${JSON.stringify(errorData)}`);
             }
 
@@ -759,19 +798,25 @@ If user asks about other topics, provide general responses and redirect to ferti
             console.error('API Key available:', !!process.env.REACT_APP_GROQ_API);
             console.error('Error details:', error.message, error.response?.status, error.response?.data);
             
+            const statusMatch = String(error.message || '').match(/API request failed: (\d+)/);
+            const failedStatus = statusMatch ? parseInt(statusMatch[1], 10) : null;
+            if (isLlmRateLimitError(failedStatus, error.message)) {
+                return buildRateLimitLookupResponse();
+            }
+
             // Provide more specific error message
             let errorMessage = "I'm sorry, I'm having trouble processing your request right now. Please try again.";
             if (!process.env.REACT_APP_GROQ_API) {
                 errorMessage = "I'm sorry, the API configuration is missing. Please contact the administrator.";
-            } else if (error.response?.status === 401) {
+            } else if (failedStatus === 401) {
                 errorMessage = "I'm sorry, there's an authentication issue. Please contact the administrator.";
             }
-            
+
             return {
                 response: errorMessage,
                 extracted_data: {},
                 missing_data: [],
-                next_action: "collect_data"
+                next_action: "collect_data",
             };
         }
     };
@@ -944,7 +989,7 @@ Ask for farm area in hectares (ha). Do not ask for location again. Do not ask fo
         }
 
         const botResponse = await sendMessageToGroq(missingDataPrompt);
-        appendBotMessage(botResponse.response || botResponse);
+        appendLlmBotMessage(botResponse);
         setShowMap(false);
         setCurrentStep('collecting_data');
     };
@@ -1095,7 +1140,7 @@ Ask for farm area in hectares (ha). Do not ask for location again. Do not ask fo
 Please provide a helpful, conversational response that explains they need to click on the map first to select a location within Ethiopia. Do not use any markdown formatting like ** or * - just plain text.`;
 
             const errorResponse = await sendMessageToGroq(mapErrorPrompt);
-            appendBotMessage(errorResponse.response || errorResponse);
+            appendLlmBotMessage(errorResponse);
             return;
         }
 
@@ -1705,7 +1750,10 @@ Please provide a helpful, conversational response that explains they need to cli
                 id: Date.now() + 1,
                 type: 'bot',
                 content: botResponse,
-                timestamp: new Date()
+                timestamp: new Date(),
+                ...(groqResponse.showFertilizerLookupLink
+                    ? { showFertilizerLookupLink: true }
+                    : {}),
             };
 
             setMessages(prev => [...prev, botMessage]);
@@ -1813,6 +1861,16 @@ Please provide a helpful, conversational response that explains they need to cli
                                     return <div key={index}>{line}</div>;
                                 })}
                             </div>
+                            {message.showFertilizerLookupLink && (
+                                <div className="message-lookup-action">
+                                    <Link
+                                        to={FERTILIZER_LOOKUP_PATH}
+                                        className="fertilizer-lookup-link-button"
+                                    >
+                                        Fertilizer Lookup
+                                    </Link>
+                                </div>
+                            )}
                             <div className="message-time">
                                 {formatTime(message.timestamp)}
                             </div>
