@@ -1,7 +1,7 @@
 # Fertilizer Advisory Chatbot
 
 ## Overview
-The Fertilizer Advisory Chatbot is an interactive AI-powered assistant that helps farmers get **DAP and Urea** recommendations plus **expected yield** for a specific location in Ethiopia. It uses Groq for natural language collection and the NextGen coordinates API for site-specific values (kg/ha), scaled to the farmer's farm size.
+The Fertilizer Advisory Chatbot is an interactive AI-powered assistant that helps farmers get **DAP and Urea** recommendations plus **expected yield** for a specific location in Ethiopia. It uses OpenAI for natural language collection and the NextGen coordinates API for site-specific values (kg/ha), scaled to the farmer's farm size.
 
 ## Recommendation flow
 
@@ -36,7 +36,7 @@ Matching logic lives in `parseLayerName` and `findMatchingLayer` in `Chatbot.js`
 
 ## API
 
-- **Groq** — conversation and field extraction (`crop`, `farm_size_ha`, `coordinates`)
+- **OpenAI** (`gpt-4o-mini` in code) — conversation and field extraction (`crop`, `farm_size_ha`, `coordinates`)
 - **Coordinates** — `POST .../coordinates/{layer}/{coorStr}/{date}` returns kg/ha (or yield kg/ha)
 
 ## Map, GPS, and bulk CSV
@@ -62,4 +62,4 @@ Crop Type,latitude,longitude,DAP (kg/ha),Urea (kg/ha)
 
 ## Environment
 
-- `REACT_APP_GROQ_API` — Groq API key
+- `REACT_APP_OPENAI_API_KEY` — OpenAI API key (model is set in `Chatbot.js`)

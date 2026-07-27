@@ -18,7 +18,16 @@ import './Chatbot.css';
 // Declare L as a global variable for Leaflet
 /* global L */
 
-// Groq API key is pulled from REACT_APP_GROQ_API environment variable
+// OpenAI chatbot: set REACT_APP_OPENAI_API_KEY in .env; model is fixed here for the project allow-list.
+const OPENAI_CHAT_MODEL = 'gpt-4o-mini';
+const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
+
+const parseOpenAiErrorMessage = (errorData) => {
+    if (!errorData) return '';
+    if (typeof errorData === 'string') return errorData;
+    if (errorData.error?.message) return errorData.error.message;
+    return JSON.stringify(errorData);
+};
 
 const RECOMMENDATION_FERTILIZERS = ['dap', 'urea'];
 
@@ -610,11 +619,10 @@ function Chatbot() {
         return matchingLayer;
     };
 
-    const sendMessageToGroq = async (userMessage, conversationContext = '', sessionCompleteOverride = null) => {
+    const sendMessageToOpenAI = async (userMessage, conversationContext = '', sessionCompleteOverride = null) => {
         try {
-            // Check if API key is available
-            if (!process.env.REACT_APP_GROQ_API) {
-                console.error('REACT_APP_GROQ_API is not defined');
+            if (!process.env.REACT_APP_OPENAI_API_KEY) {
+                console.error('REACT_APP_OPENAI_API_KEY is not defined');
                 return {
                     response: "I'm sorry, the API configuration is missing. Please contact the administrator.",
                     extracted_data: {},
@@ -704,18 +712,16 @@ If user provides coordinates, extract them in format "lat,lon". Valid Ethiopia c
 
 If user asks about other topics, provide general responses and redirect to fertilizer recommendations.`;
 
-            const apiKey = process.env.REACT_APP_GROQ_API;
-            console.log('API Key check:', apiKey ? `Present (length: ${apiKey.length})` : 'MISSING');
-            
-            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
+
+            const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    // Llama 4 Scout was decommissioned 2026-07-17; Groq recommends GPT OSS 120B
-                    model: "openai/gpt-oss-120b",
+                    model: OPENAI_CHAT_MODEL,
                     messages: [
                         {
                             role: "system",
@@ -732,14 +738,14 @@ If user asks about other topics, provide general responses and redirect to ferti
                 })
             });
 
-            // Check if response is ok
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-                console.error('Groq API error response:', response.status, errorData);
+                const apiMessage = parseOpenAiErrorMessage(errorData);
+                console.error('OpenAI API error response:', response.status, apiMessage, errorData);
                 if (isLlmRateLimitError(response.status, errorData)) {
                     return buildRateLimitLookupResponse();
                 }
-                throw new Error(`API request failed: ${response.status} - ${JSON.stringify(errorData)}`);
+                throw new Error(`API request failed: ${response.status} - ${apiMessage || JSON.stringify(errorData)}`);
             }
 
             const data = await response.json();
@@ -752,7 +758,7 @@ If user asks about other topics, provide general responses and redirect to ferti
             
             const content = data.choices[0].message.content;
             
-            console.log('Raw Groq response:', content);
+            console.log('Raw OpenAI response:', content);
             
             try {
                 // Clean the content - remove any extra text or malformed JSON
@@ -771,7 +777,7 @@ If user asks about other topics, provide general responses and redirect to ferti
                 console.log('Parsed JSON response:', parsed);
                 return parsed;
             } catch (parseError) {
-                console.error('Failed to parse Groq response as JSON:', content);
+                console.error('Failed to parse OpenAI response as JSON:', content);
                 console.error('Parse error:', parseError);
                 
                 // Try to extract just the response text from the malformed JSON
@@ -794,22 +800,32 @@ If user asks about other topics, provide general responses and redirect to ferti
                 };
             }
         } catch (error) {
-            console.error('Error calling Groq API:', error);
-            console.error('API Key available:', !!process.env.REACT_APP_GROQ_API);
+            console.error('Error calling OpenAI API:', error);
+            console.error('API Key available:', !!process.env.REACT_APP_OPENAI_API_KEY);
             console.error('Error details:', error.message, error.response?.status, error.response?.data);
             
             const statusMatch = String(error.message || '').match(/API request failed: (\d+)/);
             const failedStatus = statusMatch ? parseInt(statusMatch[1], 10) : null;
+            const failedDetail = String(error.message || '');
             if (isLlmRateLimitError(failedStatus, error.message)) {
                 return buildRateLimitLookupResponse();
             }
 
-            // Provide more specific error message
             let errorMessage = "I'm sorry, I'm having trouble processing your request right now. Please try again.";
-            if (!process.env.REACT_APP_GROQ_API) {
+            if (!process.env.REACT_APP_OPENAI_API_KEY) {
                 errorMessage = "I'm sorry, the API configuration is missing. Please contact the administrator.";
             } else if (failedStatus === 401) {
                 errorMessage = "I'm sorry, there's an authentication issue. Please contact the administrator.";
+            } else if (
+                failedStatus === 403 &&
+                (failedDetail.includes('does not have access to model') ||
+                    failedDetail.includes('model_not_found'))
+            ) {
+                errorMessage =
+                    "I'm sorry, the AI model is not enabled for this project. Please ask the administrator to allow the configured model in OpenAI.";
+            } else if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+                errorMessage =
+                    "I'm sorry, I couldn't reach the AI service (network or browser block). Try again on localhost or use a server-side proxy.";
             }
 
             return {
@@ -988,7 +1004,7 @@ Ask which crop they grow. Do not ask for location again. Plain text only.`;
 Ask for farm area in hectares (ha). Do not ask for location again. Do not ask for fertilizer type. Use only "fertilizer" — never product names like DAP or Urea. Plain text only.`;
         }
 
-        const botResponse = await sendMessageToGroq(missingDataPrompt);
+        const botResponse = await sendMessageToOpenAI(missingDataPrompt);
         appendLlmBotMessage(botResponse);
         setShowMap(false);
         setCurrentStep('collecting_data');
@@ -1139,7 +1155,7 @@ Ask for farm area in hectares (ha). Do not ask for location again. Do not ask fo
 
 Please provide a helpful, conversational response that explains they need to click on the map first to select a location within Ethiopia. Do not use any markdown formatting like ** or * - just plain text.`;
 
-            const errorResponse = await sendMessageToGroq(mapErrorPrompt);
+            const errorResponse = await sendMessageToOpenAI(mapErrorPrompt);
             appendLlmBotMessage(errorResponse);
             return;
         }
@@ -1628,12 +1644,11 @@ Please provide a helpful, conversational response that explains they need to cli
                 setCollectedData(next);
             }
 
-            // Create conversation context for Groq
             const conversationContext = messages.map(msg => 
                 `${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
             ).join('\n');
 
-            const groqResponse = await sendMessageToGroq(
+            const llmResponse = await sendMessageToOpenAI(
                 textToSend,
                 conversationContext,
                 startingFreshAdvisory ? false : advisorySessionComplete
@@ -1641,7 +1656,7 @@ Please provide a helpful, conversational response that explains they need to cli
 
             const baseData = startingFreshAdvisory ? emptyCollectedData() : { ...collectedData };
             const newCollectedData = { ...baseData };
-            const extracted = groqResponse.extracted_data || {};
+            const extracted = llmResponse.extracted_data || {};
 
             // After a completed advisory, ignore stale extractions from chat history
             // unless the user is clearly starting a new recommendation request.
@@ -1689,8 +1704,8 @@ Please provide a helpful, conversational response that explains they need to cli
                 !userTypedCoords &&
                 (isExplicitRecommendationRequest(textToSend) ||
                     workingData.crop ||
-                    (groqResponse.missing_data || []).includes('coordinates') ||
-                    groqResponse.next_action === 'show_map');
+                    (llmResponse.missing_data || []).includes('coordinates') ||
+                    llmResponse.next_action === 'show_map');
 
             let gpsPrefillNote = '';
             if (shouldTryDefaultGps) {
@@ -1703,7 +1718,7 @@ Please provide a helpful, conversational response that explains they need to cli
 
             setCollectedData(workingData);
 
-            let botResponse = groqResponse.response;
+            let botResponse = llmResponse.response;
             if (gpsPrefillNote) {
                 botResponse = gpsPrefillNote + botResponse;
             }
@@ -1716,7 +1731,7 @@ Please provide a helpful, conversational response that explains they need to cli
             // Never auto-run just because slots are filled (that caused "ok" / how-to loops).
             // Require get_recommendation from the model, with a narrow fallback when the user
             // just supplied the completing slot mid-collection.
-            const modelWantsRecommendation = groqResponse.next_action === 'get_recommendation';
+            const modelWantsRecommendation = llmResponse.next_action === 'get_recommendation';
             const completingMidCollection =
                 !advisorySessionComplete &&
                 readyForRecommendation &&
@@ -1738,11 +1753,11 @@ Please provide a helpful, conversational response that explains they need to cli
 
             if (
                 !workingData.coordinates &&
-                (shouldTryDefaultGps || groqResponse.next_action === 'show_map')
+                (shouldTryDefaultGps || llmResponse.next_action === 'show_map')
             ) {
                 botResponse = appendMapFallbackLines(botResponse);
                 setCurrentStep('collecting_data');
-            } else if (groqResponse.next_action === 'collect_data') {
+            } else if (llmResponse.next_action === 'collect_data') {
                 setCurrentStep('collecting_data');
             }
 
@@ -1751,7 +1766,7 @@ Please provide a helpful, conversational response that explains they need to cli
                 type: 'bot',
                 content: botResponse,
                 timestamp: new Date(),
-                ...(groqResponse.showFertilizerLookupLink
+                ...(llmResponse.showFertilizerLookupLink
                     ? { showFertilizerLookupLink: true }
                     : {}),
             };
