@@ -16,7 +16,7 @@ permissions:
   pull-requests: write
 
 env:
-  REACT_APP_GROQ_API: ${{ secrets.REACT_APP_GROQ_API }}
+  REACT_APP_OPENAI_API_KEY: ${{ secrets.REACT_APP_OPENAI_API_KEY }}
 
 jobs:
 
@@ -113,10 +113,12 @@ jobs:
     - name: Install packages
       run: |
           cd ./src
-          echo "REACT_APP_GROQ_API=${{env.REACT_APP_GROQ_API}}" > .env
+          echo "REACT_APP_OPENAI_API_KEY=${{ env.REACT_APP_OPENAI_API_KEY }}" > .env
           npm install
 
     - name: Run build
+      env:
+        REACT_APP_OPENAI_API_KEY: ${{ secrets.REACT_APP_OPENAI_API_KEY }}
       run: npm --prefix ./src run build
 
     - name: Zip artifact front for deployment
