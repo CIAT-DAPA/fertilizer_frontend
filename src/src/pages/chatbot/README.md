@@ -63,3 +63,5 @@ Crop Type,latitude,longitude,DAP (kg/ha),Urea (kg/ha)
 ## Environment
 
 - `REACT_APP_OPENAI_API_KEY` — OpenAI API key (model is set in `Chatbot.js`)
+
+**Production:** Create React App embeds this at **build** time. In GitHub Actions (`.github/workflows/pipeline.yml`), add a repository secret named `REACT_APP_OPENAI_API_KEY`; the release job writes it to `src/.env` before `npm run build`. Jenkins deploys the GitHub release zip as-is—no extra env on the server.
