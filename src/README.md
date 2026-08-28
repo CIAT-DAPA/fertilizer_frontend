@@ -27,7 +27,7 @@ It correctly bundles React in production mode and optimizes the build for the be
 The build is minified and the filenames include the hashes.\
 Your app is ready to be deployed!
 
-Production chatbot builds require `REACT_APP_OPENAI_API_KEY` as a GitHub **repository** secret (Actions → Secrets) so the key is embedded when this build runs (see `.github/workflows/pipeline.yml`). redoing again
+Production chatbot builds require `REACT_APP_OPENAI_API_KEY` as a GitHub **repository** secret so the key is embedded when this build runs (see `.github/workflows/pipeline.yml`). redoing again
 
 See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
