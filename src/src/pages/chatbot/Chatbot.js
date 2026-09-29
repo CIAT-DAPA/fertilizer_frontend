@@ -18,11 +18,13 @@ import './Chatbot.css';
 // Declare L as a global variable for Leaflet
 /* global L */
 
-// OpenAI chatbot: set REACT_APP_OPENAI_API_KEY in .env; model is fixed here for the project allow-list.
-const OPENAI_CHAT_MODEL = 'gpt-4o-mini';
-const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
+// The chatbot never calls OpenAI from the browser. All LLM traffic goes through the
+// HaFAS API (POST /chatbot/message), which holds the OpenAI key, model and system prompt
+// server-side. A REACT_APP_* key would be embedded in the public JS bundle and leaked.
+const CHATBOT_API_PATH = 'chatbot/message';
+const CHATBOT_REQUEST_TIMEOUT_MS = 60000;
 
-const parseOpenAiErrorMessage = (errorData) => {
+const parseApiErrorMessage = (errorData) => {
     if (!errorData) return '';
     if (typeof errorData === 'string') return errorData;
     if (errorData.error?.message) return errorData.error.message;
@@ -619,221 +621,75 @@ function Chatbot() {
         return matchingLayer;
     };
 
-    const sendMessageToOpenAI = async (userMessage, conversationContext = '', sessionCompleteOverride = null) => {
+    const sendMessageToAssistant = async (userMessage, conversationContext = '', sessionCompleteOverride = null) => {
+        const fallbackReply = (message) => ({
+            response: message,
+            extracted_data: {},
+            missing_data: [],
+            next_action: 'collect_data',
+        });
+
         try {
-            if (!process.env.REACT_APP_OPENAI_API_KEY) {
-                console.error('REACT_APP_OPENAI_API_KEY is not defined');
-                return {
-                    response: "I'm sorry, the API configuration is missing. Please contact the administrator.",
-                    extracted_data: {},
-                    missing_data: [],
-                    next_action: "collect_data"
-                };
-            }
-            
-            const crops = getAvailableCrops();
             const sessionComplete =
                 sessionCompleteOverride == null ? advisorySessionComplete : sessionCompleteOverride;
 
-            const systemPrompt = `You are an expert in site-specific fertilizer recommendation for Ethiopian farmers. Your goal is to collect exactly 3 pieces of information, then the system fetches data and builds the final recommendation message.
-
-REQUIRED INFORMATION (collect intelligently — ask only for what is still missing):
-1. Crop type
-2. Farm size in hectares (ha)
-3. Location coordinates in Ethiopia
-
-DO NOT ask the user to choose a fertilizer type. The system selects products automatically when it delivers the final recommendation.
-
-CRITICAL — PRODUCT NAMES IN CONVERSATION:
-- While collecting information or chatting, NEVER mention specific fertilizer product names (DAP, Urea, NPS, compost, etc.). Use only general terms: "fertilizer", "fertilizer recommendations", "fertilizer amounts".
-- The system builds the final message with specific products and kg amounts; you do not repeat those names before that step.
-- ONLY if the user explicitly asks what fertilizer types are available (e.g. "which fertilizers do you recommend?"), you may say this advisor provides site-specific DAP and Urea amounts plus expected yield.
-- If the user names a product while requesting advice, acknowledge their request in general terms (e.g. "I'll get fertilizer recommendations for your crop") without repeating product names unless they asked what is available.
-
-CRITICAL: You MUST NEVER invent fertilizer amounts, yield values, or totals. The system fetches kg/ha from the API and multiplies by farm size. You only collect missing fields and converse naturally.
-
-Available crops: ${crops.join(', ')}
-
-When the user gives farm size, extract a numeric hectares value (e.g. "2 ha", "1.5 hectares", "farm is 3ha"). Store as a number in farm_size_ha.
-
-CRITICAL — INTENT GATING FOR next_action "get_recommendation":
-- Set next_action to "get_recommendation" ONLY when (a) crop, farm_size_ha, and coordinates are all known, AND (b) the user's LATEST message clearly asks for fertilizer amounts / a recommendation / to check a location or crop.
-- NEVER set get_recommendation for: how to apply fertilizer, application timing/strategy, greetings, thanks, "ok", "leave it", cancel, or vague acknowledgments.
-- NEVER re-use a previous completed advisory to run another recommendation unless the user explicitly asks for another crop/location/recommendation.
-- If the latest user message is only acknowledging or abandoning a prior result ("ok", "leave it", "thanks"), set next_action to "collect_data", keep extracted_data fields null, and reply briefly without re-running advice.
-- Session status: ${sessionComplete ? 'PREVIOUS_ADVISORY_COMPLETE — do not re-trigger recommendation from chat history alone' : 'COLLECTING_OR_NEW'}
-
-When all three fields are present (crop, farm_size_ha, coordinates) AND the user is clearly requesting rates/recommendation, set next_action to "get_recommendation". Do not ask for fertilizer type.
-
-LANGUAGE TONE: Clear, professional, agriculture-appropriate. Avoid words like "thrilled", "fantastic", or "amazing".
-
-Current collected data: ${JSON.stringify(collectedData)}
-
-CRITICAL: Respond with ONLY ONE valid JSON object:
-
-{"response":"Your conversational response","extracted_data":{"crop":"extracted crop or null","coordinates":"lat,lon or null","farm_size_ha":number or null},"missing_data":["crop","farm_size_ha","coordinates"],"next_action":"collect_data|get_recommendation|show_map"}
-
-SPECIAL INSTRUCTIONS FOR "HOW DOES THE BOT WORK?":
-If the user asks how the bot works, explain:
-
-"I provide site-specific fertilizer recommendations and expected yield for your farm. I need three things:
-
-🌾 Crop — e.g. ${crops.slice(0, 3).join(', ')}${crops.length > 3 ? ', and more' : ''}
-📐 Farm size — your area in hectares (ha)
-📍 Location — GPS at your field is used automatically when allowed; map or typed coordinates are fallbacks only
-
-I'll calculate fertilizer amounts for your whole farm and your expected harvest. Specific products and kg totals appear in the final recommendation."
-
-You may also mention they can tap "How to apply fertilizer?" for the full split-application strategy under uncertain rainfall.
-
-IMPORTANT: Before triggering a recommendation, ensure intent is clear. Greetings, how-to-apply questions, and off-topic messages should get a friendly redirect, not next_action get_recommendation.
-
-SPECIAL INSTRUCTIONS FOR HOW TO APPLY / APPLICATION STRATEGY:
-If the user asks how to apply fertilizer, "how to apply?", application timing/steps, or split urea under rainfall uncertainty: do NOT set get_recommendation, and do NOT tell them to tap or select a button. Reply briefly that you will show the full application strategy (the app displays it automatically). Keep extracted_data null unless they are also starting a new rates request.
-
-SPECIAL INSTRUCTIONS FOR COORDINATES:
-- DEFAULT: The app uses phone GPS automatically when the user asks for advice or taps a "for my location" quick button. collected_data.coordinates may already be set — never ask for location again if it is set.
-- If coordinates are missing, tell the user to allow GPS when the browser prompts them. Do NOT lead with the map.
-- FALLBACK ONLY: Mention the map or typing latitude,longitude only if GPS is unavailable or the user explicitly asks for the map or manual coordinates.
-- Set next_action to "show_map" ONLY when the user explicitly wants the map (e.g. "show map", "use map", "pick on map") — not as the default way to get location.
-- When next_action is collect_data and location is still missing, remind them GPS is tried automatically; map/coordinates are backup options.
-
-If the user asks for explainability—such as "Why did you recommend this?" or any similar questions about the reasoning behind the recommendation—respond with an intelligent explanation like the following:
-
-"The recommended fertilizer value is derived from your location's specific soil properties, climate conditions, and topographic features, along with the crop's nutrient requirements. These recommendations are generated by a machine learning model that analyzes multiple environmental and agronomic factors.
-
-At the moment, I don't have access to the full dataset needed to provide a more detailed breakdown. Once my developer grants access to the complete data, I'll be able to offer a more in-depth explanation."
-
-Then, continue the conversation in a helpful and engaging manner with statements such as:
-
-"If you have any more questions or need assistance, I'm here to help"
-
-If user provides coordinates, extract them in format "lat,lon". Valid Ethiopia coordinates: latitude 3.4-14.9, longitude 33.0-48.0.
-
-If user asks about other topics, provide general responses and redirect to fertilizer recommendations.`;
-
-            const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
-
-            const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json',
+            // The system prompt, model and OpenAI key live in the backend; we only send state.
+            const { data } = await axios.post(
+                `${Configuration.get_url_api_base()}${CHATBOT_API_PATH}`,
+                {
+                    message: userMessage,
+                    conversation_context: conversationContext,
+                    collected_data: collectedData,
+                    crops: getAvailableCrops(),
+                    session_complete: sessionComplete,
                 },
-                body: JSON.stringify({
-                    model: OPENAI_CHAT_MODEL,
-                    messages: [
-                        {
-                            role: "system",
-                            content: systemPrompt
-                        },
-                        {
-                            role: "user",
-                            content: conversationContext + "\n\nUser: " + userMessage
-                        }
-                    ],
-                    temperature: 0.7,
-                    max_tokens: 1024,
-                    response_format: { type: "json_object" }
-                })
-            });
+                { timeout: CHATBOT_REQUEST_TIMEOUT_MS }
+            );
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-                const apiMessage = parseOpenAiErrorMessage(errorData);
-                console.error('OpenAI API error response:', response.status, apiMessage, errorData);
-                if (isLlmRateLimitError(response.status, errorData)) {
-                    return buildRateLimitLookupResponse();
-                }
-                throw new Error(`API request failed: ${response.status} - ${apiMessage || JSON.stringify(errorData)}`);
-            }
-
-            const data = await response.json();
-            
-            // Check if data has the expected structure
-            if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-                console.error('Unexpected API response structure:', data);
+            if (!data || typeof data !== 'object' || typeof data.response !== 'string') {
+                console.error('Unexpected chatbot API response structure:', data);
                 throw new Error('Unexpected API response format');
             }
-            
-            const content = data.choices[0].message.content;
-            
-            console.log('Raw OpenAI response:', content);
-            
-            try {
-                // Clean the content - remove any extra text or malformed JSON
-                let cleanContent = content.trim();
-                
-                // Try to find the first valid JSON object
-                const jsonStart = cleanContent.indexOf('{');
-                const jsonEnd = cleanContent.lastIndexOf('}');
-                
-                if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-                    cleanContent = cleanContent.substring(jsonStart, jsonEnd + 1);
-                }
-                
-                // Try to parse as JSON first
-                const parsed = JSON.parse(cleanContent);
-                console.log('Parsed JSON response:', parsed);
-                return parsed;
-            } catch (parseError) {
-                console.error('Failed to parse OpenAI response as JSON:', content);
-                console.error('Parse error:', parseError);
-                
-                // Try to extract just the response text from the malformed JSON
-                const responseMatch = content.match(/"response":"([^"]+)"/);
-                if (responseMatch) {
-                    return {
-                        response: responseMatch[1],
-                        extracted_data: {},
-                        missing_data: [],
-                        next_action: "collect_data"
-                    };
-                }
-                
-                // If it's not valid JSON, treat the entire content as the response
-                return {
-                    response: content,
-                    extracted_data: {},
-                    missing_data: [],
-                    next_action: "collect_data"
-                };
-            }
+
+            console.log('Chatbot API response:', data);
+            return {
+                response: data.response,
+                extracted_data: data.extracted_data && typeof data.extracted_data === 'object' ? data.extracted_data : {},
+                missing_data: Array.isArray(data.missing_data) ? data.missing_data : [],
+                next_action: data.next_action || 'collect_data',
+            };
         } catch (error) {
-            console.error('Error calling OpenAI API:', error);
-            console.error('API Key available:', !!process.env.REACT_APP_OPENAI_API_KEY);
-            console.error('Error details:', error.message, error.response?.status, error.response?.data);
-            
-            const statusMatch = String(error.message || '').match(/API request failed: (\d+)/);
-            const failedStatus = statusMatch ? parseInt(statusMatch[1], 10) : null;
-            const failedDetail = String(error.message || '');
-            if (isLlmRateLimitError(failedStatus, error.message)) {
+            const status = error.response?.status ?? null;
+            const errorData = error.response?.data;
+            const errorCode = errorData?.error?.code || '';
+            const apiMessage = parseApiErrorMessage(errorData) || error.message;
+            console.error('Error calling chatbot API:', status, errorCode, apiMessage);
+
+            if (isLlmRateLimitError(status, errorData)) {
                 return buildRateLimitLookupResponse();
             }
 
             let errorMessage = "I'm sorry, I'm having trouble processing your request right now. Please try again.";
-            if (!process.env.REACT_APP_OPENAI_API_KEY) {
+            if (status === 503 || errorCode === 'llm_not_configured') {
                 errorMessage = "I'm sorry, the API configuration is missing. Please contact the administrator.";
-            } else if (failedStatus === 401) {
-                errorMessage = "I'm sorry, there's an authentication issue. Please contact the administrator.";
             } else if (
-                failedStatus === 403 &&
-                (failedDetail.includes('does not have access to model') ||
-                    failedDetail.includes('model_not_found'))
+                errorCode === 'upstream_error' &&
+                (apiMessage.includes('does not have access to model') || apiMessage.includes('model_not_found'))
             ) {
                 errorMessage =
                     "I'm sorry, the AI model is not enabled for this project. Please ask the administrator to allow the configured model in OpenAI.";
-            } else if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
-                errorMessage =
-                    "I'm sorry, I couldn't reach the AI service (network or browser block). Try again on localhost or use a server-side proxy.";
+            } else if (
+                errorCode === 'upstream_error' &&
+                (apiMessage.toLowerCase().includes('api key') || apiMessage.toLowerCase().includes('authentication'))
+            ) {
+                errorMessage = "I'm sorry, there's an authentication issue. Please contact the administrator.";
+            } else if (status === 504 || errorCode === 'upstream_timeout' || error.code === 'ECONNABORTED') {
+                errorMessage = "I'm sorry, the AI service is taking too long to respond. Please try again.";
+            } else if (!error.response) {
+                errorMessage = "I'm sorry, I couldn't reach the advisory service. Please check your connection and try again.";
             }
 
-            return {
-                response: errorMessage,
-                extracted_data: {},
-                missing_data: [],
-                next_action: "collect_data",
-            };
+            return fallbackReply(errorMessage);
         }
     };
 
@@ -1004,7 +860,7 @@ Ask which crop they grow. Do not ask for location again. Plain text only.`;
 Ask for farm area in hectares (ha). Do not ask for location again. Do not ask for fertilizer type. Use only "fertilizer" — never product names like DAP or Urea. Plain text only.`;
         }
 
-        const botResponse = await sendMessageToOpenAI(missingDataPrompt);
+        const botResponse = await sendMessageToAssistant(missingDataPrompt);
         appendLlmBotMessage(botResponse);
         setShowMap(false);
         setCurrentStep('collecting_data');
@@ -1155,7 +1011,7 @@ Ask for farm area in hectares (ha). Do not ask for location again. Do not ask fo
 
 Please provide a helpful, conversational response that explains they need to click on the map first to select a location within Ethiopia. Do not use any markdown formatting like ** or * - just plain text.`;
 
-            const errorResponse = await sendMessageToOpenAI(mapErrorPrompt);
+            const errorResponse = await sendMessageToAssistant(mapErrorPrompt);
             appendLlmBotMessage(errorResponse);
             return;
         }
@@ -1648,7 +1504,7 @@ Please provide a helpful, conversational response that explains they need to cli
                 `${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
             ).join('\n');
 
-            const llmResponse = await sendMessageToOpenAI(
+            const llmResponse = await sendMessageToAssistant(
                 textToSend,
                 conversationContext,
                 startingFreshAdvisory ? false : advisorySessionComplete

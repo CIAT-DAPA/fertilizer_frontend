@@ -27,7 +27,7 @@ It correctly bundles React in production mode and optimizes the build for the be
 The build is minified and the filenames include the hashes.\
 Your app is ready to be deployed!
 
-Production chatbot builds require `REACT_APP_OPENAI_API_KEY` as a GitHub **repository** secret so the key is embedded when this build runs (see `.github/workflows/pipeline.yml`). redoing again
+The chatbot does **not** need an OpenAI key in this repository. The browser calls `POST <API base>/chatbot/message` on the HaFAS API (`fertilizer_webapi`), which holds the OpenAI key, model and system prompt server-side. Never add a `REACT_APP_*` secret: Create React App embeds every `REACT_APP_*` variable into the public JavaScript bundle at build time, which is how earlier keys were exposed and revoked. The API base URL is set in `src/conf/Configuration.js`.
 
 See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
