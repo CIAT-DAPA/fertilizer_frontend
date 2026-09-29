@@ -15,8 +15,10 @@ permissions:
   contents: write
   pull-requests: write
 
-env:
-  REACT_APP_OPENAI_API_KEY: ${{ secrets.REACT_APP_OPENAI_API_KEY }}
+# NOTE: no LLM/OpenAI secret here on purpose. Anything passed to the build as a
+# REACT_APP_* variable is embedded in the public JS bundle (and in the release zip),
+# which is how earlier keys leaked. The OpenAI key lives only on the API server
+# (fertilizer_webapi, POST /chatbot/message).
 
 jobs:
 
@@ -113,12 +115,9 @@ jobs:
     - name: Install packages
       run: |
           cd ./src
-          echo "REACT_APP_OPENAI_API_KEY=${{ env.REACT_APP_OPENAI_API_KEY }}" > .env
           npm install
 
     - name: Run build
-      env:
-        REACT_APP_OPENAI_API_KEY: ${{ secrets.REACT_APP_OPENAI_API_KEY }}
       run: npm --prefix ./src run build
 
     - name: Zip artifact front for deployment
